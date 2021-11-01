@@ -1,0 +1,9 @@
+[generators]
+cmake
+
+[requires]
+libcurl/7.78.0
+
+[options]
+libcurl:with_zlib=True
+libcurl:with_ssl=openssl

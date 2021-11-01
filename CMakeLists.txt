@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.5)
+project(chip8)
+
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
+
+enable_testing()
+set(CMAKE_C_FLAGS "-Wall -Werror -Wpedantic -std=c11")
+include_directories(src)
+add_library(mylib src/mylib.c)
+add_executable(chip8 src/main.c)
+target_link_libraries(mylib ${CONAN_LIBS} SDL2)
+target_link_libraries(chip8 ${CONAN_LIBS} mylib)
+add_executable(test_a test/test_a.c)
+add_test(test_a test1)
+target_link_libraries(test_a mylib cmocka)
+target_link_libraries(chip8 SDL2)
