@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include "mylib.h"
 
-void
-fillScreen(uint32_t pixels[], uint32_t pixel)
+void fillScreen(uint32_t pixels[], uint32_t pixel)
 {
     for (int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++)
     {
@@ -19,31 +18,87 @@ void loadROM(char *fileName, uint8_t memory[])
     SDL_Log("Read %d bytes from %s", bytesRead, fileName);
     int numOpcodesToPrint = 8;
     SDL_Log("The first %d opcodes are:", numOpcodesToPrint);
-    int i;
-    for (i = 0; i < numOpcodesToPrint; i++) {
-        SDL_Log("Opcode at %x: %x%x", i*2, memory[ROM_OFFSET+i*2], memory[ROM_OFFSET+i*2+1]);
+    for (int i = 0; i < numOpcodesToPrint; i++)
+    {
+        SDL_Log("Opcode at %0x: %0x%0x", i * 2, memory[ROM_OFFSET + i * 2], memory[ROM_OFFSET + i * 2 + 1]);
     }
 }
-
+void clearDisplay(State *state, uint8_t memory[])
+{
+    memset(memory+MEM_DISPLAY_START, 0, 256*sizeof(uint8_t));
+    state->draw = true;
+    state->pc += 2;
+}
 void processOp(State *state, uint8_t memory[])
 {
+    // memory is byte-addressable, but opcodes are 2-bytes long
+    // for simplicity, we break this as such:
+    // 0x0123
+    // opCodeLeft = 0x01
+    // opcodeRight = 0x23
+    // opCodeA,B,C,D = 0x0, 0x1, 0x2, 0x3
+    uint8_t opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD;
+    opCodeLeft = memory[state->pc];
+    opCodeRight = memory[state->pc + 1];
+    opCodeA = opCodeLeft >> 4;
+    opCodeB = opCodeLeft & 0x0f;
+    opCodeC = opCodeRight >> 4;
+    opCodeD = opCodeRight & 0x0f;
+    bool error = false;
+    SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
+    switch (opCodeA)
+    {
+    case (0x0):
+    {
+        switch (opCodeB)
+        {
+        case (0x0):
+        {
+            switch (opCodeRight)
+            {
+            case (0xe0):
+                clearDisplay(state, memory);
+                break;
+            default:
+                error = true;
+                break;
+            }
+        }
+        break;
+        default:
+            error = true;
+            break;
+        }
+    }
+    break;
+    default:
+        error = true;
+        break;
+    }
+    if (error)
+    {
+        // we could do a bit more like dumping the state/memory
+        SDL_Log("Unknown/unimplemented opcode %x%x", opCodeLeft, opCodeRight);
+        exit(1);
+    }
 }
 
 void updateScreen(SDL_Renderer *renderer, SDL_Texture *texture, uint8_t memory[], uint32_t pixels[])
 {
     // assume we're filling by row
-    int row, colGroup;
     uint8_t values;
     int pixelIndex = 0;
-    for (row=0; row<SCREEN_HEIGHT; row++) {
+    for (int row = 0; row < SCREEN_HEIGHT; row++)
+    {
         // our memory unit is a byte - so each block of 8 bits represents 8 pixels
-        for (colGroup=0; colGroup<SCREEN_WIDTH/8; colGroup++) {
-            values = memory[MEM_DISPLAY_START+row*(SCREEN_WIDTH/8)+colGroup];
+        for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
+        {
+            values = memory[MEM_DISPLAY_START + row * (SCREEN_WIDTH / 8) + colGroup];
             // we now bit-shift to get the state of each pixel
-            int shift;
-            for (shift=7; shift>=0; shift--) {
+            for (int shift = 7; shift >= 0; shift--)
+            {
                 pixels[pixelIndex] = ((values >> shift) & 0x1) ? PIXEL_ON : PIXEL_OFF;
-                pixelIndex++; 
+                pixelIndex++;
             }
         }
     }

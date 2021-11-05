@@ -41,13 +41,11 @@ int main(int argc, char *argv[])
 
     // VM init
     uint8_t memory[MEM_SIZE];
+    // important so we don't have any random pixels turned on when they shouldn't
     memset(memory, 0x0, MEM_SIZE*sizeof(uint8_t));
-    State state = {.draw = true};
+    State state = {.draw = true, .pc = ROM_OFFSET};
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    //fillScreen(pixels, PIXEL_ON);
     loadROM(romFilename, memory);
-    // for testing
-    memset(memory+MEM_DISPLAY_START, 0xaa, 256*sizeof(uint8_t));
 
     while (!state.quit)
     {

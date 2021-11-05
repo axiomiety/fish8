@@ -15,7 +15,7 @@
 typedef struct {
     uint8_t registers[16];
     uint16_t i;
-    uint8_t pc;
+    uint16_t pc;
     uint8_t sp;
     uint8_t stack[12];
     uint8_t delay_timer;
