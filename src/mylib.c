@@ -64,12 +64,58 @@ void processEvent(State *state, SDL_Event *event)
     case SDL_KEYDOWN:
         switch (event->key.keysym.sym)
         {
-        case SDLK_q:
+        case SDLK_ESCAPE:
             state->quit = true;
             SDL_Log("Escape pressed");
             break;
         case SDLK_1:
             state->input[0x1] = true;
+            break;
+        case SDLK_2:
+            state->input[0x2] = true;
+            break;
+        case SDLK_3:
+            state->input[0x3] = true;
+            break;
+        case SDLK_4:
+            state->input[0xc] = true;
+            break;
+        case SDLK_q:
+            state->input[0x4] = true;
+            break;
+        case SDLK_w:
+            state->input[0x5] = true;
+            break;
+        case SDLK_e:
+            state->input[0x6] = true;
+            break;
+        case SDLK_r:
+            state->input[0xd] = true;
+            break;
+        case SDLK_a:
+            state->input[0x7] = true;
+            break;
+        case SDLK_s:
+            state->input[0x8] = true;
+            break;
+        case SDLK_d:
+            state->input[0x9] = true;
+            break;
+        case SDLK_f:
+            state->input[0xe] = true;
+            break;
+        case SDLK_z:
+            state->input[0xa] = true;
+            break;
+        case SDLK_x:
+            state->input[0x0] = true;
+            break;
+        case SDLK_c:
+            state->input[0xb] = true;
+            break;
+        case SDLK_v:
+            state->input[0xf] = true;
+            break;
         default:
             break;
         }
@@ -78,6 +124,52 @@ void processEvent(State *state, SDL_Event *event)
         {
         case SDLK_1:
             state->input[0x1] = false;
+            break;
+        case SDLK_2:
+            state->input[0x2] = false;
+            break;
+        case SDLK_3:
+            state->input[0x3] = false;
+            break;
+        case SDLK_4:
+            state->input[0xc] = false;
+            break;
+        case SDLK_q:
+            state->input[0x4] = false;
+            break;
+        case SDLK_w:
+            state->input[0x5] = false;
+            break;
+        case SDLK_e:
+            state->input[0x6] = false;
+            break;
+        case SDLK_r:
+            state->input[0xd] = false;
+            break;
+        case SDLK_a:
+            state->input[0x7] = false;
+            break;
+        case SDLK_s:
+            state->input[0x8] = false;
+            break;
+        case SDLK_d:
+            state->input[0x9] = false;
+            break;
+        case SDLK_f:
+            state->input[0xe] = false;
+            break;
+        case SDLK_z:
+            state->input[0xa] = false;
+            break;
+        case SDLK_x:
+            state->input[0x0] = false;
+            break;
+        case SDLK_c:
+            state->input[0xb] = false;
+            break;
+        case SDLK_v:
+            state->input[0xf] = false;
+            break;
         default:
             break;
         }
