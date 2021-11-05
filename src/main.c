@@ -41,17 +41,20 @@ int main(int argc, char *argv[])
 
     // VM init
     uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE*sizeof(uint8_t));
     State state = {.draw = true};
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    fillScreen(pixels, PIXEL_ON);
-    loadRom(romFilename, memory);
+    //fillScreen(pixels, PIXEL_ON);
+    loadROM(romFilename, memory);
+    // for testing
+    memset(memory+MEM_DISPLAY_START, 0xaa, 256*sizeof(uint8_t));
 
     while (!state.quit)
     {
         processOp(&state, memory);
         if (state.draw)
         {
-            updateScreen(renderer, texture, pixels);
+            updateScreen(renderer, texture, memory, pixels);
             state.draw = false;
         }
         if (SDL_PollEvent(&event))
