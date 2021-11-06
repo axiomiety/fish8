@@ -17,7 +17,7 @@ typedef struct {
     uint16_t i;
     uint16_t pc;
     uint8_t sp;
-    uint8_t stack[12];
+    uint16_t stack[12];
     uint8_t delay_timer;
     uint8_t sound_timer;
     bool input[16];

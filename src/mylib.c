@@ -29,6 +29,24 @@ void clearDisplay(State *state, uint8_t memory[])
     state->draw = true;
     state->pc += 2;
 }
+void jumpToAddress(State *state, uint8_t opCodeB, uint8_t opCodeRight) {
+    // we need to combine opCodeB and opCodeRight to form a 12-bit address
+    uint16_t address = (opCodeB << 8) | opCodeRight;
+    state->pc = address;
+}
+void callSubroutine(State *state, uint8_t opCodeB, uint8_t opCodeRight) {
+    // we need to combine opCodeB and opCodeRight to form a 12-bit address
+    uint16_t address = (opCodeB << 8) | opCodeRight;
+    // push the return address onto the stack
+    state->stack[state->sp] = state->pc + 2;
+    state->sp += 1;
+    state->pc = address;
+}
+void returnFromSubroutine(State *state) {
+    state->sp -= 1;
+    state->pc = state->stack[state->sp];
+}
+
 void processOp(State *state, uint8_t memory[])
 {
     // memory is byte-addressable, but opcodes are 2-bytes long
@@ -59,6 +77,9 @@ void processOp(State *state, uint8_t memory[])
             case (0xe0):
                 clearDisplay(state, memory);
                 break;
+            case (0xee):
+                returnFromSubroutine(state);
+                break;
             default:
                 error = true;
                 break;
@@ -71,6 +92,12 @@ void processOp(State *state, uint8_t memory[])
         }
     }
     break;
+    case (0x1):
+        jumpToAddress(state, opCodeB, opCodeRight);
+        break;
+    case (0x2):
+        callSubroutine(state, opCodeB, opCodeRight);
+        break;
     default:
         error = true;
         break;
@@ -78,7 +105,7 @@ void processOp(State *state, uint8_t memory[])
     if (error)
     {
         // we could do a bit more like dumping the state/memory
-        SDL_Log("Unknown/unimplemented opcode %x%x", opCodeLeft, opCodeRight);
+        SDL_Log("Unknown/unimplemented opcode %02x%02x", opCodeLeft, opCodeRight);
         exit(1);
     }
 }
