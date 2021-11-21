@@ -46,6 +46,25 @@ void returnFromSubroutine(State *state) {
     state->sp -= 1;
     state->pc = state->stack[state->sp];
 }
+void setRegister(State *state, uint8_t reg, uint8_t opCodeRight) {
+    // reg is a byte long, but we only care for the last 4 bits
+    state->registers[reg] = opCodeRight;
+    state->pc += 2;
+}
+void addToRegister(State *state, uint8_t reg, uint8_t opCodeRight) {
+    // reg is a byte long, but we only care for the last 4 bits
+    state->registers[reg] = (state->registers[reg] + opCodeRight) & 0xff;
+    state->pc += 2;
+}
+void jumpIfEqualToConst(State *state, uint8_t reg, uint8_t value) {
+    state->pc += (state->registers[reg] == value) ? 4 : 2;
+}
+void jumpIfNotEqualToConst(State *state, uint8_t reg, uint8_t value) {
+    state->pc += (state->registers[reg] != value) ? 4 : 2;
+}
+void jumpIfEqualToReg(State *state, uint8_t reg1, uint8_t reg2) {
+    state->pc += (state->registers[reg1] == state->registers[reg2]) ? 4 : 2;
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -97,6 +116,21 @@ void processOp(State *state, uint8_t memory[])
         break;
     case (0x2):
         callSubroutine(state, opCodeB, opCodeRight);
+        break;
+    case (0x3):
+        jumpIfEqualToConst(state, opCodeB, opCodeRight);
+        break;
+    case (0x4):
+        jumpIfNotEqualToConst(state, opCodeB, opCodeRight);
+        break;
+    case (0x5):
+        jumpIfEqualToReg(state, opCodeB, opCodeC);
+        break;
+    case (0x6):
+        setRegister(state, opCodeB, opCodeRight);
+        break;
+    case (0x7):
+        addToRegister(state, opCodeB, opCodeRight);
         break;
     default:
         error = true;

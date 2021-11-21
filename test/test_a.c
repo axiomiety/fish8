@@ -85,11 +85,87 @@ static void test_flow(void **state)
     assert_int_equal(0, chip8State.sp);
 }
 
+static void test_const(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x6001 # set register 0 to 0x1
+        0x0202 0x6cab # set register c to to 0xab
+        0x0204 0x70ff # add 0xff to register 0 - carry flag remains unchanged
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x60, 0x01, 0x6c, 0xab, 0x70, 0xff};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+
+    // let's make sure our registers are all 0
+    for (int i=0l;i < 0xf; i++){
+        assert_int_equal(chip8State.registers[i], 0);
+    }
+    processOp(&chip8State, memory);
+    // register 0 should be set to 1
+    assert_int_equal(chip8State.registers[0], 0x1);
+    processOp(&chip8State, memory);
+    // register c should be set to 0xab
+    assert_int_equal(chip8State.registers[0xc], 0xab);
+    // add 0xff to register 0
+    processOp(&chip8State, memory);
+    // and adding such that it overflows discards any other digits
+    assert_int_equal(chip8State.registers[0], 0x0);
+    // and the carry flag hasn't changed
+    assert_int_equal(chip8State.registers[0xf], 0x0);
+}
+
+static void test_cond(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x31ab # compare register 1 to 0xab, jump over if equal to 0xab
+        0x0202 0x6122 # set register 1 to 0xab
+        0x0204 0x41ab # compare register 1 to 0xab, jump over if not equal to 0xab
+        0x0206 0x62ab # set register 2 to 0xab
+        0x0208 0x5100 # compare register 1 to register 0, jump over if equal
+        0x020a 0x5120 # compare register 1 to register 2, jump over if equal
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x31, 0xab, 0x61, 0xab, 0x41, 0xab, 0x62, 0xab, 0x51, 0x0, 0x51, 0x20};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 12);
+
+    processOp(&chip8State, memory);
+    // we should not have skipped over 0x0202
+    assert_int_equal(chip8State.pc, 0x202);
+    // set register 1 to 0xab
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x204);
+    // compare
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x206);
+    // set register 2 to 0xab
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x208);
+    // compare register 1 and register 0
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x20a);
+    // compare register 1 and register 2
+    processOp(&chip8State, memory);
+    // they're both the same so we should not be at 0x0214
+    assert_int_equal(chip8State.pc, 0x20e);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_clear_display),
         cmocka_unit_test(test_flow),
+        cmocka_unit_test(test_const),
+        cmocka_unit_test(test_cond),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
