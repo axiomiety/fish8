@@ -25,16 +25,18 @@ void loadROM(char *fileName, uint8_t memory[])
 }
 void clearDisplay(State *state, uint8_t memory[])
 {
-    memset(memory+MEM_DISPLAY_START, 0, 256*sizeof(uint8_t));
+    memset(memory + MEM_DISPLAY_START, 0, 256 * sizeof(uint8_t));
     state->draw = true;
     state->pc += 2;
 }
-void jumpToAddress(State *state, uint8_t opCodeB, uint8_t opCodeRight) {
+void jumpToAddress(State *state, uint8_t opCodeB, uint8_t opCodeRight)
+{
     // we need to combine opCodeB and opCodeRight to form a 12-bit address
     uint16_t address = (opCodeB << 8) | opCodeRight;
     state->pc = address;
 }
-void callSubroutine(State *state, uint8_t opCodeB, uint8_t opCodeRight) {
+void callSubroutine(State *state, uint8_t opCodeB, uint8_t opCodeRight)
+{
     // we need to combine opCodeB and opCodeRight to form a 12-bit address
     uint16_t address = (opCodeB << 8) | opCodeRight;
     // push the return address onto the stack
@@ -42,28 +44,58 @@ void callSubroutine(State *state, uint8_t opCodeB, uint8_t opCodeRight) {
     state->sp += 1;
     state->pc = address;
 }
-void returnFromSubroutine(State *state) {
+void returnFromSubroutine(State *state)
+{
     state->sp -= 1;
     state->pc = state->stack[state->sp];
 }
-void setRegister(State *state, uint8_t reg, uint8_t opCodeRight) {
+void setRegister(State *state, uint8_t reg, uint8_t opCodeRight)
+{
     // reg is a byte long, but we only care for the last 4 bits
     state->registers[reg] = opCodeRight;
     state->pc += 2;
 }
-void addToRegister(State *state, uint8_t reg, uint8_t opCodeRight) {
+void addToRegister(State *state, uint8_t reg, uint8_t opCodeRight)
+{
     // reg is a byte long, but we only care for the last 4 bits
     state->registers[reg] = (state->registers[reg] + opCodeRight) & 0xff;
     state->pc += 2;
 }
-void jumpIfEqualToConst(State *state, uint8_t reg, uint8_t value) {
+void jumpIfRegEqualToConst(State *state, uint8_t reg, uint8_t value)
+{
     state->pc += (state->registers[reg] == value) ? 4 : 2;
 }
-void jumpIfNotEqualToConst(State *state, uint8_t reg, uint8_t value) {
+void jumpIfRegNotEqualToConst(State *state, uint8_t reg, uint8_t value)
+{
     state->pc += (state->registers[reg] != value) ? 4 : 2;
 }
-void jumpIfEqualToReg(State *state, uint8_t reg1, uint8_t reg2) {
+void jumpIfRegEqualToReg(State *state, uint8_t reg1, uint8_t reg2)
+{
     state->pc += (state->registers[reg1] == state->registers[reg2]) ? 4 : 2;
+}
+void jumpIfRegNotEqualToReg(State *state, uint8_t reg1, uint8_t reg2)
+{
+    state->pc += (state->registers[reg1] != state->registers[reg2]) ? 4 : 2;
+}
+void setRegisterToRegister(State *state, uint8_t reg1, uint8_t reg2)
+{
+    state->registers[reg2] = state->registers[reg1];
+    state->pc += 2;
+}
+void setRegisterToBitwiseOr(State *state, uint8_t reg1, uint8_t reg2)
+{
+    state->registers[reg1] |= state->registers[reg2];
+    state->pc += 2;
+}
+void setRegisterToBitwiseAnd(State *state, uint8_t reg1, uint8_t reg2)
+{
+    state->registers[reg1] &= state->registers[reg2];
+    state->pc += 2;
+}
+void setRegisterToBitwiseXor(State *state, uint8_t reg1, uint8_t reg2)
+{
+    state->registers[reg1] ^= state->registers[reg2];
+    state->pc += 2;
 }
 
 void processOp(State *state, uint8_t memory[])
@@ -118,19 +150,44 @@ void processOp(State *state, uint8_t memory[])
         callSubroutine(state, opCodeB, opCodeRight);
         break;
     case (0x3):
-        jumpIfEqualToConst(state, opCodeB, opCodeRight);
+        jumpIfRegEqualToConst(state, opCodeB, opCodeRight);
         break;
     case (0x4):
-        jumpIfNotEqualToConst(state, opCodeB, opCodeRight);
+        jumpIfRegNotEqualToConst(state, opCodeB, opCodeRight);
         break;
     case (0x5):
-        jumpIfEqualToReg(state, opCodeB, opCodeC);
+        jumpIfRegEqualToReg(state, opCodeB, opCodeC);
         break;
     case (0x6):
         setRegister(state, opCodeB, opCodeRight);
         break;
     case (0x7):
         addToRegister(state, opCodeB, opCodeRight);
+        break;
+    case (0x8):
+    {
+        switch (opCodeD)
+        {
+        case (0x0):
+            setRegisterToRegister(state, opCodeB, opCodeC);
+            break;
+        case (0x1):
+            setRegisterToBitwiseOr(state, opCodeB, opCodeC);
+            break;
+        case (0x2):
+            setRegisterToBitwiseAnd(state, opCodeB, opCodeC);
+            break;
+        case (0x3):
+            setRegisterToBitwiseXor(state, opCodeB, opCodeC);
+            break;
+        default:
+            error = true;
+            break;
+        }
+    }
+    break;
+    case (0x9):
+        jumpIfRegNotEqualToReg(state, opCodeB, opCodeC);
         break;
     default:
         error = true;

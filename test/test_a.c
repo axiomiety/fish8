@@ -124,18 +124,18 @@ static void test_cond(void **state)
     /*
     The test ROM will look like this:
         0x0200 0x31ab # compare register 1 to 0xab, jump over if equal to 0xab
-        0x0202 0x6122 # set register 1 to 0xab
+        0x0202 0x61ab # set register 1 to 0xab
         0x0204 0x41ab # compare register 1 to 0xab, jump over if not equal to 0xab
         0x0206 0x62ab # set register 2 to 0xab
         0x0208 0x5100 # compare register 1 to register 0, jump over if equal
-        0x020a 0x5120 # compare register 1 to register 2, jump over if equal
+        0x020a 0x9120 # compare register 1 to register 2, jump over if equal
     */
 
     // init
     State chip8State = {.pc = ROM_OFFSET};
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
-    uint8_t rom[] = {0x31, 0xab, 0x61, 0xab, 0x41, 0xab, 0x62, 0xab, 0x51, 0x0, 0x51, 0x20};
+    uint8_t rom[] = {0x31, 0xab, 0x61, 0xab, 0x41, 0xab, 0x62, 0xab, 0x51, 0x0, 0x91, 0x20};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 12);
 
     processOp(&chip8State, memory);
@@ -150,13 +150,97 @@ static void test_cond(void **state)
     // set register 2 to 0xab
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.pc, 0x208);
-    // compare register 1 and register 0
+    // compare register 1 and register 0, jump if equal
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.pc, 0x20a);
-    // compare register 1 and register 2
+    // compare register 1 and register 2, jump if not equal
     processOp(&chip8State, memory);
-    // they're both the same so we should not be at 0x0214
-    assert_int_equal(chip8State.pc, 0x20e);
+    // they're both the same so we should just be at the next isntruction
+    assert_int_equal(chip8State.pc, 0x20c);
+}
+
+static void test_assign(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x61ab # set register 1 to 0xab
+        0x0202 0x8120 # set register 2 to the same value as register 1
+        0x0204 0x5120 # compare regsiter 1 and 2, jump over if equal
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x61, 0xab, 0x81, 0x20, 0x51, 0x20};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+
+    // make sure both regs are 0 at the start
+    assert_int_equal(chip8State.registers[1], 0x0);
+    assert_int_equal(chip8State.registers[2], 0x0);
+    // assign 0xab to register 1
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0xab);
+    // set register 2 to register 1
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[2], 0xab);
+    // compare both registers
+    processOp(&chip8State, memory);
+    // they should be equal, so the pc should have incremented by 4
+    assert_int_equal(chip8State.pc, 0x208);
+}
+
+static void test_bitwise_operators(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x610f # set register 1 to 0x0f
+        0x0202 0x62f0 # set register 2 to 0xf0
+        0x0204 0x8121 # set register 1 to r1 | r2
+        0x0206 0x8112 # set register 1 to r1 & r1
+        0x0208 0x8113 # set register 1 to r1 ^ r1
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x61, 0x0f, 0x62, 0xf0, 0x81, 0x21, 0x81, 0x12, 0x81, 0x13};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
+    
+    // set the regs
+    processOp(&chip8State, memory);
+    processOp(&chip8State, memory);
+    // |=
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0xff);
+    // &=
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0xff);
+    // ^=
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0x0);
+}
+
+static void test_bitwise_shift(void  **state) {
+    /*
+    The test ROM will look like this:
+        0x0200 0x610f # set register 1 to 0x0f
+        0x0202 0x62f0 # set register 2 to 0xf0
+        0x0204 0x8121 # set register 1 to r1 | r2
+        0x0206 0x8112 # set register 1 to r1 & r1
+        0x0208 0x8113 # set register 1 to r1 ^ r1
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x61, 0x0f, 0x62, 0xf0, 0x81, 0x21, 0x81, 0x12, 0x81, 0x13};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
+    
+    processOp(&chip8State, memory);
+
 }
 
 int main(void)
@@ -166,6 +250,9 @@ int main(void)
         cmocka_unit_test(test_flow),
         cmocka_unit_test(test_const),
         cmocka_unit_test(test_cond),
+        cmocka_unit_test(test_assign),
+        cmocka_unit_test(test_bitwise_operators),
+        cmocka_unit_test(test_bitwise_shift),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
