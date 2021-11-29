@@ -97,6 +97,43 @@ void setRegisterToBitwiseXor(State *state, uint8_t reg1, uint8_t reg2)
     state->registers[reg1] ^= state->registers[reg2];
     state->pc += 2;
 }
+void leftShift(State *state, uint8_t reg)
+{
+    uint16_t val = state->registers[reg] << 1;
+    state->registers[reg] = val & 0xff;
+    state->registers[0xf] = (val & 0x100) >> 8;
+    state->pc += 2;
+}
+void rightShift(State *state, uint8_t reg)
+{
+    state->registers[0xf] = state->registers[reg] & 0x1;
+    state->registers[reg] >>= 1;
+    state->pc += 2;
+}
+void addRegisters(State *state, uint8_t reg1, uint8_t reg2)
+{
+    uint16_t val = state->registers[reg1] + state->registers[reg2];
+    state->registers[reg1] = val & 0xff;
+    state->registers[0xf] = (val & 0x100) >> 8;
+    state->pc += 2;
+}
+void subtractRegisters(State *state, uint8_t reg1, uint8_t reg2)
+{
+    bool needBorrow = state->registers[reg2] > state->registers[reg1];
+    state->registers[reg1] = (state->registers[reg1] - state->registers[reg2]) + (needBorrow ? 0xff : 0 );
+    // if we need a borrow, this is set  0
+    state->registers[0xf] = needBorrow ? 0 : 1;
+    state->pc += 2;
+}
+void subtractRightFromLeft(State *state, uint8_t reg1, uint8_t reg2)
+{
+    bool needBorrow = state->registers[reg1] > state->registers[reg2];
+    state->registers[reg1] = (state->registers[reg2] - state->registers[reg1]) + (needBorrow ? 0xff : 0 );
+    // if we need a borrow, this is set  0
+    state->registers[0xf] = needBorrow ? 0 : 1;
+    state->pc += 2;
+}
+
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -179,6 +216,21 @@ void processOp(State *state, uint8_t memory[])
             break;
         case (0x3):
             setRegisterToBitwiseXor(state, opCodeB, opCodeC);
+            break;
+        case (0x4):
+            addRegisters(state, opCodeB, opCodeC);
+            break;
+        case (0x5):
+            subtractRegisters(state, opCodeB, opCodeC);
+            break;
+        case (0x6):
+            rightShift(state, opCodeB);
+            break;
+        case (0x7):
+            subtractRightFromLeft(state, opCodeB, opCodeC);
+            break;
+        case (0xe):
+            leftShift(state, opCodeB);
             break;
         default:
             error = true;

@@ -225,22 +225,91 @@ static void test_bitwise_operators(void **state)
 static void test_bitwise_shift(void  **state) {
     /*
     The test ROM will look like this:
-        0x0200 0x610f # set register 1 to 0x0f
-        0x0202 0x62f0 # set register 2 to 0xf0
-        0x0204 0x8121 # set register 1 to r1 | r2
-        0x0206 0x8112 # set register 1 to r1 & r1
-        0x0208 0x8113 # set register 1 to r1 ^ r1
+        0x0200 0x61f0 # set register 1 to 0xf0
+        0x0202 0x810e # store the MSB in register 0xf, left shift by 1
+        0x0204 0x6f00 # set regsiter 0xf to 0
+        0x0206 0x6201 # set register 1 to 0x01
+        0x0208 0x8206 # store the LSB in register 0xf, right shift by 1
     */
 
     // init
     State chip8State = {.pc = ROM_OFFSET};
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
-    uint8_t rom[] = {0x61, 0x0f, 0x62, 0xf0, 0x81, 0x21, 0x81, 0x12, 0x81, 0x13};
+    uint8_t rom[] = {0x61, 0xf0, 0x81, 0x0e, 0x6f, 0x0, 0x62, 0x01, 0x82, 0x06};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
     
     processOp(&chip8State, memory);
+    // left shift
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0xe0);
+    // the "overflown" bit should be stored in 0xf
+    assert_int_equal(chip8State.registers[0xf], 0x1);
+    // reset 0xf
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[0xf], 0x0);
+    // store 1 in r2
+    processOp(&chip8State, memory);
+    // bitshift to the right
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[2], 0x0);
+    assert_int_equal(chip8State.registers[0xf], 0x1);
 
+}
+
+static void test_register_maths(void  **state) {
+    /*
+    The test ROM will look like this:
+        0x0200 0x61f0 # set register 1 to 0xf0
+        0x0202 0x6210 # set register 2 to 0x10
+        0x0204 0x8124 # add r2 to r1
+        0x0206 0x8f00 # set register f to 0x0
+        0x0208 0x6301 # set register 3 to 0xf0
+        0x020a 0x640f # set register 4 to 0x10
+        0x020c 0x8345 # subtract r4 from r3
+        0x020e 0x8335 # subtract r3 from r3
+        0x0210 0x6502 # set register 5 to 0x1
+        0x0212 0x6601 # set register 6 to 0x2
+        0x0214 0x8567 # subtract r5 from r6 and store in r5
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x61, 0xf0, 0x62, 0x10, 0x81, 0x24, 0x6f, 0x0, 0x63, 0x01, 0x64, 0x0f, 0x83, 0x45, 0x83, 0x35, 0x65, 0x02, 0x66, 0x01, 0x85, 0x67};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 22);
+    
+    // set both registers
+    processOp(&chip8State, memory);
+    processOp(&chip8State, memory);
+    // perform the addition
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[1], 0x00);
+    // carry flag should be set
+    assert_int_equal(chip8State.registers[0xf], 0x1);
+    // reset flag register
+    processOp(&chip8State, memory);
+    // set both registers
+    processOp(&chip8State, memory);
+    processOp(&chip8State, memory);
+    // perform the addition
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[3], 0xf1);
+    // there *was* a borrow, so this should be 0
+    assert_int_equal(chip8State.registers[0xf], 0x0);
+    // subtract r3 from r3
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[3], 0x0);
+    // there wasn't any borrow, so this should be 1
+    assert_int_equal(chip8State.registers[0xf], 0x1);
+    // set the registers
+    processOp(&chip8State, memory);
+    processOp(&chip8State, memory);
+    // subtract r6 from r5
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.registers[5], 0xfe);
+    assert_int_equal(chip8State.registers[0xf], 0x0);
 }
 
 int main(void)
@@ -253,6 +322,7 @@ int main(void)
         cmocka_unit_test(test_assign),
         cmocka_unit_test(test_bitwise_operators),
         cmocka_unit_test(test_bitwise_shift),
+        cmocka_unit_test(test_register_maths),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
