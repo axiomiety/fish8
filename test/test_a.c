@@ -102,7 +102,8 @@ static void test_const(void **state)
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
 
     // let's make sure our registers are all 0
-    for (int i=0l;i < 0xf; i++){
+    for (int i = 0l; i < 0xf; i++)
+    {
         assert_int_equal(chip8State.registers[i], 0);
     }
     processOp(&chip8State, memory);
@@ -207,7 +208,7 @@ static void test_bitwise_operators(void **state)
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0x0f, 0x62, 0xf0, 0x81, 0x21, 0x81, 0x12, 0x81, 0x13};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
-    
+
     // set the regs
     processOp(&chip8State, memory);
     processOp(&chip8State, memory);
@@ -222,7 +223,8 @@ static void test_bitwise_operators(void **state)
     assert_int_equal(chip8State.registers[1], 0x0);
 }
 
-static void test_bitwise_shift(void  **state) {
+static void test_bitwise_shift(void **state)
+{
     /*
     The test ROM will look like this:
         0x0200 0x61f0 # set register 1 to 0xf0
@@ -238,7 +240,7 @@ static void test_bitwise_shift(void  **state) {
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0xf0, 0x81, 0x0e, 0x6f, 0x0, 0x62, 0x01, 0x82, 0x06};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
-    
+
     processOp(&chip8State, memory);
     // left shift
     processOp(&chip8State, memory);
@@ -254,10 +256,10 @@ static void test_bitwise_shift(void  **state) {
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.registers[2], 0x0);
     assert_int_equal(chip8State.registers[0xf], 0x1);
-
 }
 
-static void test_register_maths(void  **state) {
+static void test_register_maths(void **state)
+{
     /*
     The test ROM will look like this:
         0x0200 0x61f0 # set register 1 to 0xf0
@@ -279,7 +281,7 @@ static void test_register_maths(void  **state) {
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0xf0, 0x62, 0x10, 0x81, 0x24, 0x6f, 0x0, 0x63, 0x01, 0x64, 0x0f, 0x83, 0x45, 0x83, 0x35, 0x65, 0x02, 0x66, 0x01, 0x85, 0x67};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 22);
-    
+
     // set both registers
     processOp(&chip8State, memory);
     processOp(&chip8State, memory);
@@ -312,8 +314,8 @@ static void test_register_maths(void  **state) {
     assert_int_equal(chip8State.registers[0xf], 0x0);
 }
 
-
-static void test_keyboard(void  **state) {
+static void test_keyboard(void **state)
+{
     /*
     The test ROM will look like this:
         0x0200 0xe19e # skip the next instruction if key 0x1 is down
@@ -329,7 +331,7 @@ static void test_keyboard(void  **state) {
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xe1, 0x9e, 0x60, 0x01, 0xe1, 0xa1};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
-    
+
     // check that key 1 is depressed
     assert_int_equal(chip8State.input[1], false);
     // skip 0x0202 if the key is pressed (which it isn't)
@@ -353,7 +355,8 @@ static void test_keyboard(void  **state) {
     assert_int_equal(chip8State2.pc, 0x206);
 }
 
-static void test_keyboard_blocking(void **state) {
+static void test_keyboard_blocking(void **state)
+{
     /*
     The test ROM will look like this:
         0x0200 0xf50a # wait until a key is pressed, store it in r5
@@ -365,7 +368,7 @@ static void test_keyboard_blocking(void **state) {
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xf5, 0x0a};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
-    
+
     // wait for a key to be pressed
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.pc, ROM_OFFSET);
@@ -379,7 +382,8 @@ static void test_keyboard_blocking(void **state) {
     assert_int_equal(chip8State.registers[0x5], 0x1);
 }
 
-static void test_memory_set_i(void **state) {
+static void test_memory_set_i(void **state)
+{
     /*
     The test ROM will look like this:
         0x0200 0xa123 # set i to 0x123
@@ -401,9 +405,31 @@ static void test_memory_set_i(void **state) {
     assert_int_equal(chip8State.i, 0x123);
     // set the register
     processOp(&chip8State, memory);
-    // add to i 
+    // add to i
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.i, 0x125);
+}
+
+static void test_memory_set_pc(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x6002 # set r0 to 0x2
+        0x0202 0xb123 # set the program counter to r0 + 0x123
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x60, 0x02, 0xb1, 0x23};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+
+    // set the register
+    processOp(&chip8State, memory);
+    // set i
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x125);
 }
 
 int main(void)
@@ -420,6 +446,7 @@ int main(void)
         cmocka_unit_test(test_keyboard),
         cmocka_unit_test(test_keyboard_blocking),
         cmocka_unit_test(test_memory_set_i),
+        cmocka_unit_test(test_memory_set_pc),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -161,6 +161,10 @@ void addRegToI(State *state, uint8_t reg)
     state->i += state->registers[reg];
     state->pc += 2;
 }
+void setPC(State *state, uint8_t top, uint8_t bottom)
+{
+    state->pc = state->registers[0] + ((top << 8) | bottom);
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -270,6 +274,9 @@ void processOp(State *state, uint8_t memory[])
         break;
     case (0xa):
         setI(state, opCodeB, opCodeRight);
+        break;
+    case (0xb):
+        setPC(state, opCodeB, opCodeRight);
         break;
     case (0xe):
     {
