@@ -432,6 +432,48 @@ static void test_memory_set_pc(void **state)
     assert_int_equal(chip8State.pc, 0x125);
 }
 
+static void test_save_load_registers(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0xa300 # set i to 0x0300
+        0x0200 0x6101 # set r1 to 0x1
+        0x0200 0x6202 # set r2 to 0x2
+        0x0200 0x6302 # set r3 to 0x3
+        0x0202 0xf355 # store r0 to r3 at i
+        0x0200 0x6109 # set r1 to 0x1
+        0x0200 0x6208 # set r2 to 0x2
+        0x0200 0x6307 # set r3 to 0x3
+        0x0202 0xf365 # load r0 to r3 from i
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xa3, 0x00, 0x61, 0x01, 0x62, 0x02, 0x63, 0x03, 0xf3, 0x55, 0x61, 0x09, 0x62, 0x08, 0x63, 0x07, 0xf3, 0x65};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 18);
+
+    // set the registers and save
+    for (int i = 0; i < 5; i++)
+    {
+        processOp(&chip8State, memory);
+    }
+    uint8_t expected[] = {0x0, 0x1, 0x2, 0x3};
+    assert_memory_equal(memory + chip8State.i, expected, 4);
+
+    // we now set the registers to something else and load
+    for (int i = 0; i < 4; i++)
+    {
+        processOp(&chip8State, memory);
+    }
+    for (int i = 0; i < 4; i++)
+    {
+        assert_int_equal(chip8State.registers[i], i);
+    }
+    
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -447,6 +489,7 @@ int main(void)
         cmocka_unit_test(test_keyboard_blocking),
         cmocka_unit_test(test_memory_set_i),
         cmocka_unit_test(test_memory_set_pc),
+        cmocka_unit_test(test_save_load_registers),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

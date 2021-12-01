@@ -165,6 +165,22 @@ void setPC(State *state, uint8_t top, uint8_t bottom)
 {
     state->pc = state->registers[0] + ((top << 8) | bottom);
 }
+void saveRegisters(State *state, uint8_t reg, uint8_t memory[])
+{
+    uint16_t memIdx = state->i;
+    for (int regIdx=0; regIdx<=reg; regIdx++){
+        memory[memIdx++] = state->registers[regIdx];
+    }
+    state->pc += 2;
+}
+void loadRegisters(State *state, uint8_t reg, uint8_t memory[])
+{
+    uint16_t memIdx = state->i;
+    for (int regIdx=0; regIdx<=reg; regIdx++){
+        state->registers[regIdx] = memory[memIdx++];
+    }
+    state->pc += 2;
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -303,6 +319,12 @@ void processOp(State *state, uint8_t memory[])
             break;
         case (0x1e):
             addRegToI(state, opCodeB);
+            break;
+        case (0x55):
+            saveRegisters(state, opCodeB, memory);
+            break;
+        case (0x65):
+            loadRegisters(state, opCodeB, memory);
             break;
         default:
             error = true;
