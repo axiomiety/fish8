@@ -379,6 +379,33 @@ static void test_keyboard_blocking(void **state) {
     assert_int_equal(chip8State.registers[0x5], 0x1);
 }
 
+static void test_memory_set_i(void **state) {
+    /*
+    The test ROM will look like this:
+        0x0200 0xa123 # set i to 0x123
+        0x0202 0x6102 # set r1 to 0x2
+        0x0204 0xf11e # add the contents of r1 to i
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xa1, 0x23, 0x61, 0x02, 0xf1, 0x1e};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+
+    // i should be 0 upon initialisation
+    assert_int_equal(chip8State.i, 0x0);
+    // i should now be 0x123
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.i, 0x123);
+    // set the register
+    processOp(&chip8State, memory);
+    // add to i 
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.i, 0x125);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -392,6 +419,7 @@ int main(void)
         cmocka_unit_test(test_register_maths),
         cmocka_unit_test(test_keyboard),
         cmocka_unit_test(test_keyboard_blocking),
+        cmocka_unit_test(test_memory_set_i),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -151,6 +151,16 @@ void waitForKey(State *state, uint8_t reg)
         }
     }
 }
+void setI(State *state, uint8_t top, uint8_t bottom)
+{
+    state->i = (top << 8) | bottom;
+    state->pc += 2;
+}
+void addRegToI(State *state, uint8_t reg)
+{
+    state->i += state->registers[reg];
+    state->pc += 2;
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -258,6 +268,9 @@ void processOp(State *state, uint8_t memory[])
     case (0x9):
         jumpIfRegNotEqualToReg(state, opCodeB, opCodeC);
         break;
+    case (0xa):
+        setI(state, opCodeB, opCodeRight);
+        break;
     case (0xe):
     {
         switch (opCodeRight)
@@ -280,6 +293,9 @@ void processOp(State *state, uint8_t memory[])
         {
         case (0x0a):
             waitForKey(state, opCodeB);
+            break;
+        case (0x1e):
+            addRegToI(state, opCodeB);
             break;
         default:
             error = true;
