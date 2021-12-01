@@ -120,7 +120,7 @@ void addRegisters(State *state, uint8_t reg1, uint8_t reg2)
 void subtractRegisters(State *state, uint8_t reg1, uint8_t reg2)
 {
     bool needBorrow = state->registers[reg2] > state->registers[reg1];
-    state->registers[reg1] = (state->registers[reg1] - state->registers[reg2]) + (needBorrow ? 0xff : 0 );
+    state->registers[reg1] = (state->registers[reg1] - state->registers[reg2]) + (needBorrow ? 0xff : 0);
     // if we need a borrow, this is set  0
     state->registers[0xf] = needBorrow ? 0 : 1;
     state->pc += 2;
@@ -128,12 +128,29 @@ void subtractRegisters(State *state, uint8_t reg1, uint8_t reg2)
 void subtractRightFromLeft(State *state, uint8_t reg1, uint8_t reg2)
 {
     bool needBorrow = state->registers[reg1] > state->registers[reg2];
-    state->registers[reg1] = (state->registers[reg2] - state->registers[reg1]) + (needBorrow ? 0xff : 0 );
+    state->registers[reg1] = (state->registers[reg2] - state->registers[reg1]) + (needBorrow ? 0xff : 0);
     // if we need a borrow, this is set  0
     state->registers[0xf] = needBorrow ? 0 : 1;
     state->pc += 2;
 }
-
+void jumpIfKeyPressed(State *state, uint8_t key)
+{
+    state->pc += state->input[key] ? 4 : 2;
+}
+void jumpIfKeyNotPressed(State *state, uint8_t key)
+{
+    state->pc += state->input[key] ? 2 : 4;
+}
+void waitForKey(State *state, uint8_t reg)
+{
+    // any key that is pressed if valid
+    for (int key=0; key<16;key++) {
+        if (state->input[key]) {
+            state->registers[reg] = key;
+            state->pc += 2;
+        }
+    }
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -241,6 +258,35 @@ void processOp(State *state, uint8_t memory[])
     case (0x9):
         jumpIfRegNotEqualToReg(state, opCodeB, opCodeC);
         break;
+    case (0xe):
+    {
+        switch (opCodeRight)
+        {
+        case (0x9e):
+            jumpIfKeyPressed(state, opCodeB);
+            break;
+        case (0xa1):
+            jumpIfKeyNotPressed(state, opCodeB);
+            break;
+        default:
+            error = true;
+            break;
+        }
+    }
+    break;
+    case (0xf):
+    {
+        switch (opCodeRight)
+        {
+        case (0x0a):
+            waitForKey(state, opCodeB);
+            break;
+        default:
+            error = true;
+            break;
+        }
+    }
+    break;
     default:
         error = true;
         break;

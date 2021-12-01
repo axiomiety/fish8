@@ -312,6 +312,73 @@ static void test_register_maths(void  **state) {
     assert_int_equal(chip8State.registers[0xf], 0x0);
 }
 
+
+static void test_keyboard(void  **state) {
+    /*
+    The test ROM will look like this:
+        0x0200 0xe19e # skip the next instruction if key 0x1 is down
+        0x0202 0x6001 # set register r0 to 1
+        0x0204 0xe1a1 # skip the next instruction if key 0x1 is *not* down
+
+    This test is a little different in that state will be changed from the outside.
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xe1, 0x9e, 0x60, 0x01, 0xe1, 0xa1};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    
+    // check that key 1 is depressed
+    assert_int_equal(chip8State.input[1], false);
+    // skip 0x0202 if the key is pressed (which it isn't)
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x202);
+    // set the register
+    processOp(&chip8State, memory);
+    // key 1 is still not pressed so we should skip the next instruction
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, 0x208);
+
+    // now run through this again but setting the key as pressed
+    State chip8State2 = {.pc = ROM_OFFSET};
+    chip8State2.input[0x1] = true;
+
+    // skip 0x0202 if the key is pressed (which it is this time)
+    processOp(&chip8State2, memory);
+    assert_int_equal(chip8State2.pc, 0x204);
+    // key 1 is still pressed so we should proceed to the next instruction
+    processOp(&chip8State2, memory);
+    assert_int_equal(chip8State2.pc, 0x206);
+}
+
+static void test_keyboard_blocking(void **state) {
+    /*
+    The test ROM will look like this:
+        0x0200 0xf50a # wait until a key is pressed, store it in r5
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xf5, 0x0a};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+    
+    // wait for a key to be pressed
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.pc, ROM_OFFSET);
+    // simulate a key getting pressed
+    chip8State.input[1] = true;
+    // check again
+    processOp(&chip8State, memory);
+    // we should now proceed to the next instruction
+    assert_int_equal(chip8State.pc, 0x202);
+    // and register 5 should have value 1
+    assert_int_equal(chip8State.registers[0x5], 0x1);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -323,6 +390,8 @@ int main(void)
         cmocka_unit_test(test_bitwise_operators),
         cmocka_unit_test(test_bitwise_shift),
         cmocka_unit_test(test_register_maths),
+        cmocka_unit_test(test_keyboard),
+        cmocka_unit_test(test_keyboard_blocking),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
