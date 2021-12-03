@@ -181,6 +181,11 @@ void loadRegisters(State *state, uint8_t reg, uint8_t memory[])
     }
     state->pc += 2;
 }
+void getRandomNumber(State *state, uint8_t reg, uint8_t mask)
+{
+    state->registers[reg] = rand() % 256 & mask;
+    state->pc += 2;
+}
 
 void processOp(State *state, uint8_t memory[])
 {
@@ -293,6 +298,9 @@ void processOp(State *state, uint8_t memory[])
         break;
     case (0xb):
         setPC(state, opCodeB, opCodeRight);
+        break;
+    case (0xc):
+        getRandomNumber(state, opCodeB, opCodeRight);
         break;
     case (0xe):
     {

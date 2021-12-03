@@ -471,7 +471,27 @@ static void test_save_load_registers(void **state)
     {
         assert_int_equal(chip8State.registers[i], i);
     }
-    
+}
+
+static void test_rand(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0xc50f # generate a random number between 0-255 & 0x0f
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xc5, 0x0f};
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+
+    processOp(&chip8State, memory);
+    // set the seed so we always get the same random number
+    srand(0xdeadbeef);
+    assert_in_range(chip8State.registers[0x5],0x0,0xf);
+    assert_int_equal(chip8State.registers[0x5],0x7);
 }
 
 int main(void)
@@ -490,6 +510,7 @@ int main(void)
         cmocka_unit_test(test_memory_set_i),
         cmocka_unit_test(test_memory_set_pc),
         cmocka_unit_test(test_save_load_registers),
+        cmocka_unit_test(test_rand),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
