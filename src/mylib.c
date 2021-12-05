@@ -102,7 +102,7 @@ void jumpIfRegNotEqualToReg(State *state, uint8_t reg1, uint8_t reg2)
 }
 void setRegisterToRegister(State *state, uint8_t reg1, uint8_t reg2)
 {
-    state->registers[reg2] = state->registers[reg1];
+    state->registers[reg1] = state->registers[reg2];
     state->pc += 2;
 }
 void setRegisterToBitwiseOr(State *state, uint8_t reg1, uint8_t reg2)
@@ -143,15 +143,14 @@ void addRegisters(State *state, uint8_t reg1, uint8_t reg2)
 void subtractRegisters(State *state, uint8_t reg1, uint8_t reg2)
 {
     bool needBorrow = state->registers[reg2] > state->registers[reg1];
-    state->registers[reg1] = (state->registers[reg1] - state->registers[reg2]) + (needBorrow ? 0xff : 0);
-    // if we need a borrow, this is set  0
+    state->registers[reg1] = (state->registers[reg1] - state->registers[reg2]) % 0xff;
     state->registers[0xf] = needBorrow ? 0 : 1;
     state->pc += 2;
 }
 void subtractRightFromLeft(State *state, uint8_t reg1, uint8_t reg2)
 {
     bool needBorrow = state->registers[reg1] > state->registers[reg2];
-    state->registers[reg1] = (state->registers[reg2] - state->registers[reg1]) + (needBorrow ? 0xff : 0);
+    state->registers[reg1] = (state->registers[reg2] - state->registers[reg1]) % 0xff;
     // if we need a borrow, this is set  0
     state->registers[0xf] = needBorrow ? 0 : 1;
     state->pc += 2;
@@ -233,6 +232,27 @@ void setPixels(State *state, uint8_t x, uint8_t y, uint8_t height, uint8_t memor
     }
     state->draw = flipped ? true : false;
     state->registers[0xf] = state->draw ? 1 : 0;
+    state->pc += 2;
+}
+void setIToBCD(State *state, uint8_t reg, uint8_t memory[])
+{
+    uint8_t val = state->registers[reg];
+    for (int offset = 2; offset >= 0; offset--)
+    {
+        memory[state->i + offset] = val % 10;
+        val -= memory[state->i + offset];
+        val /= 10;
+    }
+    state->pc += 2;
+}
+void setDelayTimerFromRegister(State *state, uint8_t reg)
+{
+    state->delay_timer = state->registers[reg];
+    state->pc += 2;
+}
+void setSoundTimerFromRegister(State *state, uint8_t reg)
+{
+    state->sound_timer = state->registers[reg];
     state->pc += 2;
 }
 
@@ -377,11 +397,20 @@ void processOp(State *state, uint8_t memory[])
         case (0x0a):
             waitForKey(state, opCodeB);
             break;
+        case (0x15):
+            setDelayTimerFromRegister(state, opCodeB);
+            break;
+        case (0x18):
+            setSoundTimerFromRegister(state, opCodeB);
+            break;
         case (0x1e):
             addRegToI(state, opCodeB);
             break;
         case (0x29):
             setIToSprite(state, opCodeB);
+            break;
+        case (0x33):
+            setIToBCD(state, opCodeB, memory);
             break;
         case (0x55):
             saveRegisters(state, opCodeB, memory);

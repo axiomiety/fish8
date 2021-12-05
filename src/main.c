@@ -43,44 +43,56 @@ int main(int argc, char *argv[])
     uint8_t memory[MEM_SIZE];
     // important so we don't have any random pixels turned on when they shouldn't
     // we can't use memset because it works at a byte-level and each memory "cell" is 2-bytes wide
-    for (int i=0;i<MEM_SIZE;i++) {
+    for (int i = 0; i < MEM_SIZE; i++)
+    {
         memory[i] = 0;
     }
     // load up the sprites
     copySpritesToMemory(memory);
     State state = {.draw = false, .pc = ROM_OFFSET};
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    for (int i=0;i<SCREEN_HEIGHT*SCREEN_WIDTH;i++) {
+    for (int i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++)
+    {
         pixels[i] = PIXEL_OFF;
     }
     // we don't really need this - ROMs should execute the 0x00e0 instruction
     // that essentially does the same thing
     updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
-    //loadROM(romFilename, memory);
+    loadROM(romFilename, memory);
     uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
     memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
     uint8_t count = 0;
-    const uint8_t* keyStates = SDL_GetKeyboardState(NULL);
-    while (!state.quit && count < 20)
+    const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
+    bool running = true;
+    while (!state.quit)
     {
-        processOp(&state, memory);
-        if (state.draw)
+        if (running)
         {
-            updateScreen(renderer, texture, memory, pixels);
-            state.draw = false;
+            processOp(&state, memory);
+            if (state.draw)
+            {
+                updateScreen(renderer, texture, memory, pixels);
+                state.draw = false;
+            }
+            processInput(&state, keyStates);
+
+            count += 1;
         }
-        processInput(&state, keyStates);
-        
+        if (keyStates[SDL_SCANCODE_SPACE])
+        {
+            SDL_Log("Pause toggled");
+            // so we don't untoggle too fast
+            SDL_Delay(1000);
+            running = running ? false : true;
+        }
         // more for quit than anything else?
-        while(SDL_PollEvent(&event))
+        while (SDL_PollEvent(&event))
         {
             processEvent(&state, &event);
         }
-        
-        count += 1;
-        SDL_Delay(500);
+        SDL_Delay(100);
     }
     SDL_Delay(4000);
 

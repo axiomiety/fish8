@@ -423,7 +423,7 @@ static void test_memory_set_pc(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x60, 0x02, 0xb1, 0x23};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom) );
 
     // set the register
     processOp(&chip8State, memory);
@@ -452,7 +452,7 @@ static void test_save_load_registers(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xa3, 0x00, 0x61, 0x01, 0x62, 0x02, 0x63, 0x03, 0xf3, 0x55, 0x61, 0x09, 0x62, 0x08, 0x63, 0x07, 0xf3, 0x65};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 18);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom) );
 
     // set the registers and save
     for (int i = 0; i < 5; i++)
@@ -507,7 +507,7 @@ static void test_set_sprite(void **state)
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xff, 0x29};
     copySpritesToMemory(memory);
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom) );
 
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.i, 5*0xf);
@@ -532,7 +532,7 @@ static void test_draw_sprite(void **state)
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xff, 0x29, 0xd0, 0x05, 0xd0, 0x05};
     copySpritesToMemory(memory);
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // set i
     processOp(&chip8State, memory);
@@ -556,6 +556,37 @@ static void test_draw_sprite(void **state)
     assert_int_equal(chip8State.registers[0xf], 0);
 }
 
+static void test_bcd(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0x6181 # set register 1 to 0x81, or 129 in decimal
+        0x0202 0xa300 # set i to 0x300
+        0x0203 0xf133 # store the binary representation of r1 at I
+
+    Redrawing the same sprite should cause the 0xf register to be set to 1
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0x61, 0x81, 0xa3, 0x0, 0xf1, 0x33};
+    copySpritesToMemory(memory);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
+
+    // set register 1
+    processOp(&chip8State, memory);
+    // set i to 0x300
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.i, 0x300);
+    // BCD of 0x81 is 129
+    processOp(&chip8State, memory);
+    assert_int_equal(memory[chip8State.i], 1);
+    assert_int_equal(memory[chip8State.i+1], 2);
+    assert_int_equal(memory[chip8State.i+2], 9);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -575,6 +606,7 @@ int main(void)
         cmocka_unit_test(test_rand),
         cmocka_unit_test(test_set_sprite),
         cmocka_unit_test(test_draw_sprite),
+        cmocka_unit_test(test_bcd),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
