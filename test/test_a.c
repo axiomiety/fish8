@@ -59,7 +59,7 @@ static void test_flow(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x0, 0xe0, 0x0, 0xee, 0x22, 0x00, 0x12, 0x04};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 8);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // process the jump
     processOp(&chip8State, memory);
@@ -99,7 +99,7 @@ static void test_const(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x60, 0x01, 0x6c, 0xab, 0x70, 0xff};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // let's make sure our registers are all 0
     for (int i = 0l; i < 0xf; i++)
@@ -137,7 +137,7 @@ static void test_cond(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x31, 0xab, 0x61, 0xab, 0x41, 0xab, 0x62, 0xab, 0x51, 0x0, 0x91, 0x20};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 12);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     processOp(&chip8State, memory);
     // we should not have skipped over 0x0202
@@ -174,7 +174,7 @@ static void test_assign(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0xab, 0x81, 0x20, 0x51, 0x20};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // make sure both regs are 0 at the start
     assert_int_equal(chip8State.registers[1], 0x0);
@@ -207,7 +207,7 @@ static void test_bitwise_operators(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0x0f, 0x62, 0xf0, 0x81, 0x21, 0x81, 0x12, 0x81, 0x13};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // set the regs
     processOp(&chip8State, memory);
@@ -239,7 +239,7 @@ static void test_bitwise_shift(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0xf0, 0x81, 0x0e, 0x6f, 0x0, 0x62, 0x01, 0x82, 0x06};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 10);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     processOp(&chip8State, memory);
     // left shift
@@ -280,7 +280,7 @@ static void test_register_maths(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0x61, 0xf0, 0x62, 0x10, 0x81, 0x24, 0x6f, 0x0, 0x63, 0x01, 0x64, 0x0f, 0x83, 0x45, 0x83, 0x35, 0x65, 0x02, 0x66, 0x01, 0x85, 0x67};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 22);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // set both registers
     processOp(&chip8State, memory);
@@ -330,7 +330,7 @@ static void test_keyboard(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xe1, 0x9e, 0x60, 0x01, 0xe1, 0xa1};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // check that key 1 is depressed
     assert_int_equal(chip8State.input[1], false);
@@ -367,7 +367,7 @@ static void test_keyboard_blocking(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xf5, 0x0a};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // wait for a key to be pressed
     processOp(&chip8State, memory);
@@ -396,7 +396,7 @@ static void test_memory_set_i(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xa1, 0x23, 0x61, 0x02, 0xf1, 0x1e};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // i should be 0 upon initialisation
     assert_int_equal(chip8State.i, 0x0);
@@ -485,13 +485,75 @@ static void test_rand(void **state)
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
     uint8_t rom[] = {0xc5, 0x0f};
-    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     processOp(&chip8State, memory);
     // set the seed so we always get the same random number
     srand(0xdeadbeef);
     assert_in_range(chip8State.registers[0x5],0x0,0xf);
     assert_int_equal(chip8State.registers[0x5],0x7);
+}
+
+static void test_set_sprite(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0xff29 # set i to the location of the sprite for 0xf
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xff, 0x29};
+    copySpritesToMemory(memory);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 2);
+
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.i, 5*0xf);
+    uint8_t spriteF[] = { 0xf0,0x80,0xf0,0x80,0x80 };
+    assert_memory_equal(memory + SPRITES_OFFSET + chip8State.i, spriteF, 5);
+}
+
+static void test_draw_sprite(void **state)
+{
+    /*
+    The test ROM will look like this:
+        0x0200 0xff29 # set i to the location of the sprite for 0xf
+        0x0202 0xd005 # draw the 5x8 sprite defined at i at (0,0)
+        0x0204 0xd005 # draw the 5x8 sprite defined at i at (0,0)
+
+    Redrawing the same sprite should cause the 0xf register to be set to 1
+    */
+
+    // init
+    State chip8State = {.pc = ROM_OFFSET};
+    uint8_t memory[MEM_SIZE];
+    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
+    uint8_t rom[] = {0xff, 0x29, 0xd0, 0x05, 0xd0, 0x05};
+    copySpritesToMemory(memory);
+    memcpy(memory + ROM_OFFSET, rom, sizeof(rom[0]) * 6);
+
+    // set i
+    processOp(&chip8State, memory);
+    assert_int_equal(chip8State.i, 5*0xf);
+    // draw
+    processOp(&chip8State, memory);
+    // confirm the pixels have been set accordingly
+    uint8_t pixels[] = { 0xf0,0x80,0xf0,0x80,0x80 };
+    for (int row = 0; row < 5; row++) {
+        assert_int_equal(memory[MEM_DISPLAY_START + row*SCREEN_WIDTH/8], pixels[row]);
+    }
+    // draw flag should be set
+    assert_true(chip8State.draw);
+    assert_int_equal(chip8State.registers[0xf], 1);
+    // simulate a screen refersh by setting the flag back to false
+    chip8State.draw = false;
+    // draw the same sprite again
+    processOp(&chip8State, memory);
+    // flag should be unchanged
+    assert_false(chip8State.draw);
+    assert_int_equal(chip8State.registers[0xf], 0);
 }
 
 int main(void)
@@ -511,6 +573,8 @@ int main(void)
         cmocka_unit_test(test_memory_set_pc),
         cmocka_unit_test(test_save_load_registers),
         cmocka_unit_test(test_rand),
+        cmocka_unit_test(test_set_sprite),
+        cmocka_unit_test(test_draw_sprite),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

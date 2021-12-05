@@ -23,6 +23,29 @@ void loadROM(char *fileName, uint8_t memory[])
         SDL_Log("Opcode at %0x: %0x%0x", i * 2, memory[ROM_OFFSET + i * 2], memory[ROM_OFFSET + i * 2 + 1]);
     }
 }
+void copySpritesToMemory(uint8_t memory[])
+{
+    uint8_t sprites[] = {
+        0xf0, 0x90, 0x90, 0x90, 0xf0, // 0
+        0x20, 0x60, 0x20, 0x20, 0x70, // 1
+        0xf0, 0x10, 0xf0, 0x80, 0xf0, // 2
+        0xf0, 0x10, 0xf0, 0x10, 0xf0, // 3
+        0x90, 0x90, 0xf0, 0x10, 0x10, // 4
+        0xf0, 0x80, 0xf0, 0x10, 0xf0, // 5
+        0xf0, 0x80, 0xf0, 0x90, 0xf0, // 6
+        0xf0, 0x10, 0x20, 0x40, 0x40, // 7
+        0xf0, 0x90, 0xf0, 0x90, 0xf0, // 8
+        0xf0, 0x90, 0xf0, 0x10, 0xf0, // 9
+        0xf0, 0x90, 0xf0, 0x90, 0x90, // a
+        0xe0, 0x90, 0xe0, 0x90, 0xe0, // b
+        0xf0, 0x80, 0x80, 0x80, 0xf0, // c
+        0xe0, 0x90, 0x90, 0x90, 0xe0, // d
+        0xf0, 0x80, 0xf0, 0x80, 0xf0, // e
+        0xf0, 0x80, 0xf0, 0x80, 0x80, // f
+    };
+
+    memcpy(memory + SPRITES_OFFSET, sprites, sizeof(sprites));
+}
 void clearDisplay(State *state, uint8_t memory[])
 {
     memset(memory + MEM_DISPLAY_START, 0, 256 * sizeof(uint8_t));
@@ -143,11 +166,14 @@ void jumpIfKeyNotPressed(State *state, uint8_t key)
 }
 void waitForKey(State *state, uint8_t reg)
 {
-    // any key that is pressed if valid
-    for (int key=0; key<16;key++) {
-        if (state->input[key]) {
+    for (int key = 0; key < 16; key++)
+    {
+        if (state->input[key])
+        {
+            SDL_Log("noticed key %d pressed", key);
             state->registers[reg] = key;
             state->pc += 2;
+            break;
         }
     }
 }
@@ -168,7 +194,8 @@ void setPC(State *state, uint8_t top, uint8_t bottom)
 void saveRegisters(State *state, uint8_t reg, uint8_t memory[])
 {
     uint16_t memIdx = state->i;
-    for (int regIdx=0; regIdx<=reg; regIdx++){
+    for (int regIdx = 0; regIdx <= reg; regIdx++)
+    {
         memory[memIdx++] = state->registers[regIdx];
     }
     state->pc += 2;
@@ -176,7 +203,8 @@ void saveRegisters(State *state, uint8_t reg, uint8_t memory[])
 void loadRegisters(State *state, uint8_t reg, uint8_t memory[])
 {
     uint16_t memIdx = state->i;
-    for (int regIdx=0; regIdx<=reg; regIdx++){
+    for (int regIdx = 0; regIdx <= reg; regIdx++)
+    {
         state->registers[regIdx] = memory[memIdx++];
     }
     state->pc += 2;
@@ -184,6 +212,27 @@ void loadRegisters(State *state, uint8_t reg, uint8_t memory[])
 void getRandomNumber(State *state, uint8_t reg, uint8_t mask)
 {
     state->registers[reg] = rand() % 256 & mask;
+    state->pc += 2;
+}
+void setIToSprite(State *state, uint8_t reg)
+{
+    // a sprite is 5 bytes long and indexing starts at 0 for this interpreter
+    state->i = reg * 5;
+    state->pc += 2;
+}
+void setPixels(State *state, uint8_t x, uint8_t y, uint8_t height, uint8_t memory[])
+{
+    uint8_t flipped = 0;
+    uint16_t idx = state->i;
+    uint16_t offset = 0;
+    for (int row = 0; row < height; row++)
+    {
+        offset = MEM_DISPLAY_START + x + (SCREEN_WIDTH / 8) * (y + row);
+        flipped += memory[offset] ^ memory[idx];
+        memory[offset] = memory[idx++];
+    }
+    state->draw = flipped ? true : false;
+    state->registers[0xf] = state->draw ? 1 : 0;
     state->pc += 2;
 }
 
@@ -302,6 +351,9 @@ void processOp(State *state, uint8_t memory[])
     case (0xc):
         getRandomNumber(state, opCodeB, opCodeRight);
         break;
+    case (0xd):
+        setPixels(state, opCodeB, opCodeC, opCodeD, memory);
+        break;
     case (0xe):
     {
         switch (opCodeRight)
@@ -327,6 +379,9 @@ void processOp(State *state, uint8_t memory[])
             break;
         case (0x1e):
             addRegToI(state, opCodeB);
+            break;
+        case (0x29):
+            setIToSprite(state, opCodeB);
             break;
         case (0x55):
             saveRegisters(state, opCodeB, memory);
@@ -357,24 +412,46 @@ void updateScreen(SDL_Renderer *renderer, SDL_Texture *texture, uint8_t memory[]
     // assume we're filling by row
     uint8_t values;
     int pixelIndex = 0;
+    uint16_t offset = MEM_DISPLAY_START;
     for (int row = 0; row < SCREEN_HEIGHT; row++)
     {
         // our memory unit is a byte - so each block of 8 bits represents 8 pixels
         for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
         {
-            values = memory[MEM_DISPLAY_START + row * (SCREEN_WIDTH / 8) + colGroup];
+            values = memory[offset];
             // we now bit-shift to get the state of each pixel
             for (int shift = 7; shift >= 0; shift--)
             {
                 pixels[pixelIndex] = ((values >> shift) & 0x1) ? PIXEL_ON : PIXEL_OFF;
                 pixelIndex++;
             }
+            offset += 1;
         }
     }
-    SDL_UpdateTexture(texture, NULL, pixels, SCREEN_HEIGHT * sizeof(uint32_t));
+    SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+}
+
+void processInput(State *state, const uint8_t keyStates[])
+{
+    state->input[0x1] = keyStates[SDL_SCANCODE_1];
+    state->input[0x2] = keyStates[SDL_SCANCODE_2];
+    state->input[0x3] = keyStates[SDL_SCANCODE_3];
+    state->input[0xc] = keyStates[SDL_SCANCODE_4];
+    state->input[0x4] = keyStates[SDL_SCANCODE_Q];
+    state->input[0x5] = keyStates[SDL_SCANCODE_W];
+    state->input[0x6] = keyStates[SDL_SCANCODE_E];
+    state->input[0xd] = keyStates[SDL_SCANCODE_R];
+    state->input[0x7] = keyStates[SDL_SCANCODE_A];
+    state->input[0x8] = keyStates[SDL_SCANCODE_S];
+    state->input[0x9] = keyStates[SDL_SCANCODE_D];
+    state->input[0xe] = keyStates[SDL_SCANCODE_F];
+    state->input[0xa] = keyStates[SDL_SCANCODE_Z];
+    state->input[0x0] = keyStates[SDL_SCANCODE_X];
+    state->input[0xb] = keyStates[SDL_SCANCODE_C];
+    state->input[0xf] = keyStates[SDL_SCANCODE_V];
 }
 
 void processEvent(State *state, SDL_Event *event)
@@ -385,118 +462,6 @@ void processEvent(State *state, SDL_Event *event)
         state->quit = true;
         SDL_Log("Quit pressed");
         break;
-    case SDL_KEYDOWN:
-        switch (event->key.keysym.sym)
-        {
-        case SDLK_ESCAPE:
-            state->quit = true;
-            SDL_Log("Escape pressed");
-            break;
-        case SDLK_1:
-            state->input[0x1] = true;
-            break;
-        case SDLK_2:
-            state->input[0x2] = true;
-            break;
-        case SDLK_3:
-            state->input[0x3] = true;
-            break;
-        case SDLK_4:
-            state->input[0xc] = true;
-            break;
-        case SDLK_q:
-            state->input[0x4] = true;
-            break;
-        case SDLK_w:
-            state->input[0x5] = true;
-            break;
-        case SDLK_e:
-            state->input[0x6] = true;
-            break;
-        case SDLK_r:
-            state->input[0xd] = true;
-            break;
-        case SDLK_a:
-            state->input[0x7] = true;
-            break;
-        case SDLK_s:
-            state->input[0x8] = true;
-            break;
-        case SDLK_d:
-            state->input[0x9] = true;
-            break;
-        case SDLK_f:
-            state->input[0xe] = true;
-            break;
-        case SDLK_z:
-            state->input[0xa] = true;
-            break;
-        case SDLK_x:
-            state->input[0x0] = true;
-            break;
-        case SDLK_c:
-            state->input[0xb] = true;
-            break;
-        case SDLK_v:
-            state->input[0xf] = true;
-            break;
-        default:
-            break;
-        }
-    case SDL_KEYUP:
-        switch (event->key.keysym.sym)
-        {
-        case SDLK_1:
-            state->input[0x1] = false;
-            break;
-        case SDLK_2:
-            state->input[0x2] = false;
-            break;
-        case SDLK_3:
-            state->input[0x3] = false;
-            break;
-        case SDLK_4:
-            state->input[0xc] = false;
-            break;
-        case SDLK_q:
-            state->input[0x4] = false;
-            break;
-        case SDLK_w:
-            state->input[0x5] = false;
-            break;
-        case SDLK_e:
-            state->input[0x6] = false;
-            break;
-        case SDLK_r:
-            state->input[0xd] = false;
-            break;
-        case SDLK_a:
-            state->input[0x7] = false;
-            break;
-        case SDLK_s:
-            state->input[0x8] = false;
-            break;
-        case SDLK_d:
-            state->input[0x9] = false;
-            break;
-        case SDLK_f:
-            state->input[0xe] = false;
-            break;
-        case SDLK_z:
-            state->input[0xa] = false;
-            break;
-        case SDLK_x:
-            state->input[0x0] = false;
-            break;
-        case SDLK_c:
-            state->input[0xb] = false;
-            break;
-        case SDLK_v:
-            state->input[0xf] = false;
-            break;
-        default:
-            break;
-        }
     default:
         break;
     }

@@ -6,11 +6,12 @@
 #define SCREEN_HEIGHT 32
 #define SCALE 10
 #define MEM_SIZE 4096
+#define SPRITES_OFFSET 0x0
 #define ROM_OFFSET 0x200
 #define MAX_ROM_SIZE (0xea0 - 0x200)
 #define MEM_DISPLAY_START 0xf00
-#define PIXEL_ON 0x0000ffff
-#define PIXEL_OFF 0xff0000ff
+#define PIXEL_ON 0xffffffff
+#define PIXEL_OFF 0x000000ff
 
 typedef struct {
     uint8_t registers[16];
@@ -35,7 +36,13 @@ void
 processOp(State *state, uint8_t memory[]);
 
 void
+copySpritesToMemory(uint8_t memory[]);
+
+void
 updateScreen(SDL_Renderer *renderer, SDL_Texture *texture, uint8_t memory[], uint32_t pixels[]);
+
+void
+processInput(State * state, const uint8_t keyStates[]);
 
 void
 processEvent(State * state, SDL_Event *event);

@@ -42,12 +42,28 @@ int main(int argc, char *argv[])
     // VM init
     uint8_t memory[MEM_SIZE];
     // important so we don't have any random pixels turned on when they shouldn't
-    memset(memory, 0x0, MEM_SIZE*sizeof(uint8_t));
-    State state = {.draw = true, .pc = ROM_OFFSET};
+    // we can't use memset because it works at a byte-level and each memory "cell" is 2-bytes wide
+    for (int i=0;i<MEM_SIZE;i++) {
+        memory[i] = 0;
+    }
+    // load up the sprites
+    copySpritesToMemory(memory);
+    State state = {.draw = false, .pc = ROM_OFFSET};
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    loadROM(romFilename, memory);
+    for (int i=0;i<SCREEN_HEIGHT*SCREEN_WIDTH;i++) {
+        pixels[i] = PIXEL_OFF;
+    }
+    // we don't really need this - ROMs should execute the 0x00e0 instruction
+    // that essentially does the same thing
+    updateScreen(renderer, texture, memory, pixels);
+    SDL_Log("ROM filename: %s", romFilename);
+    //loadROM(romFilename, memory);
+    uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
+    memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
-    while (!state.quit)
+    uint8_t count = 0;
+    const uint8_t* keyStates = SDL_GetKeyboardState(NULL);
+    while (!state.quit && count < 20)
     {
         processOp(&state, memory);
         if (state.draw)
@@ -55,11 +71,18 @@ int main(int argc, char *argv[])
             updateScreen(renderer, texture, memory, pixels);
             state.draw = false;
         }
-        if (SDL_PollEvent(&event))
+        processInput(&state, keyStates);
+        
+        // more for quit than anything else?
+        while(SDL_PollEvent(&event))
         {
             processEvent(&state, &event);
         }
+        
+        count += 1;
+        SDL_Delay(500);
     }
+    SDL_Delay(4000);
 
     SDL_Quit();
 
