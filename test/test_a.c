@@ -164,8 +164,8 @@ static void test_assign(void **state)
 {
     /*
     The test ROM will look like this:
-        0x0200 0x61ab # set register 1 to 0xab
-        0x0202 0x8120 # set register 2 to the same value as register 1
+        0x0200 0x62ab # set register 2 to 0xab
+        0x02r2 0x8120 # set register 1 to the same value as register 2
         0x0204 0x5120 # compare regsiter 1 and 2, jump over if equal
     */
 
@@ -173,7 +173,7 @@ static void test_assign(void **state)
     State chip8State = {.pc = ROM_OFFSET};
     uint8_t memory[MEM_SIZE];
     memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
-    uint8_t rom[] = {0x61, 0xab, 0x81, 0x20, 0x51, 0x20};
+    uint8_t rom[] = {0x62, 0xab, 0x81, 0x20, 0x51, 0x20};
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // make sure both regs are 0 at the start
@@ -181,10 +181,10 @@ static void test_assign(void **state)
     assert_int_equal(chip8State.registers[2], 0x0);
     // assign 0xab to register 1
     processOp(&chip8State, memory);
-    assert_int_equal(chip8State.registers[1], 0xab);
+    assert_int_equal(chip8State.registers[2], 0xab);
     // set register 2 to register 1
     processOp(&chip8State, memory);
-    assert_int_equal(chip8State.registers[2], 0xab);
+    assert_int_equal(chip8State.registers[1], 0xab);
     // compare both registers
     processOp(&chip8State, memory);
     // they should be equal, so the pc should have incremented by 4
@@ -295,9 +295,9 @@ static void test_register_maths(void **state)
     // set both registers
     processOp(&chip8State, memory);
     processOp(&chip8State, memory);
-    // perform the addition
+    // subtract r4 from r3
     processOp(&chip8State, memory);
-    assert_int_equal(chip8State.registers[3], 0xf1);
+    assert_int_equal(chip8State.registers[3], 0xf2);
     // there *was* a borrow, so this should be 0
     assert_int_equal(chip8State.registers[0xf], 0x0);
     // subtract r3 from r3
@@ -310,7 +310,7 @@ static void test_register_maths(void **state)
     processOp(&chip8State, memory);
     // subtract r6 from r5
     processOp(&chip8State, memory);
-    assert_int_equal(chip8State.registers[5], 0xfe);
+    assert_int_equal(chip8State.registers[5], 0xff);
     assert_int_equal(chip8State.registers[0xf], 0x0);
 }
 
@@ -520,8 +520,10 @@ static void test_draw_sprite(void **state)
     /*
     The test ROM will look like this:
         0x0200 0xff29 # set i to the location of the sprite for 0xf
-        0x0202 0xd005 # draw the 5x8 sprite defined at i at (0,0)
-        0x0204 0xd005 # draw the 5x8 sprite defined at i at (0,0)
+        0x0202 0x610a # set r1 to 0xa
+        0x0202 0x6000 # set r2 to 0x1
+        0x0202 0xd115 # draw the 5x8 sprite defined at i at (r1,r0)
+        0x0204 0xd105 # draw the 5x8 sprite defined at i at (r1,r0)
 
     Redrawing the same sprite should cause the 0xf register to be set to 1
     */
@@ -529,20 +531,28 @@ static void test_draw_sprite(void **state)
     // init
     State chip8State = {.pc = ROM_OFFSET};
     uint8_t memory[MEM_SIZE];
-    memset(memory, 0x0, MEM_SIZE * sizeof(uint8_t));
-    uint8_t rom[] = {0xff, 0x29, 0xd0, 0x05, 0xd0, 0x05};
+    for (int i = 0; i < MEM_SIZE; i++)
+    {
+        memory[i] = 0;
+    }
+    uint8_t rom[] = {0xff, 0x29, 0x61, 0x02, 0x60,0x00, 0xd1, 0x01, 0xd1, 0x01};
     copySpritesToMemory(memory);
     memcpy(memory + ROM_OFFSET, rom, sizeof(rom));
 
     // set i
     processOp(&chip8State, memory);
     assert_int_equal(chip8State.i, 5*0xf);
+    // set r1
+    processOp(&chip8State, memory);
+    // set r0
+    processOp(&chip8State, memory);
     // draw
     processOp(&chip8State, memory);
     // confirm the pixels have been set accordingly
     uint8_t pixels[] = { 0xf0,0x80,0xf0,0x80,0x80 };
     for (int row = 0; row < 5; row++) {
-        assert_int_equal(memory[MEM_DISPLAY_START + row*SCREEN_WIDTH/8], pixels[row]);
+        SDL_Log("row %d", row);
+        assert_int_equal(memory[MEM_DISPLAY_START + + (row+0x1)*SCREEN_WIDTH/8], pixels[row]);
     }
     // draw flag should be set
     assert_true(chip8State.draw);

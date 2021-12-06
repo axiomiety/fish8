@@ -60,15 +60,16 @@ int main(int argc, char *argv[])
     updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
     loadROM(romFilename, memory);
-    uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
-    memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
+    //uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
+    //memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
     uint8_t count = 0;
     const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
     bool running = true;
+    bool step = false;
     while (!state.quit)
     {
-        if (running)
+        if (running || step)
         {
             processOp(&state, memory);
             if (state.draw)
@@ -79,6 +80,7 @@ int main(int argc, char *argv[])
             processInput(&state, keyStates);
 
             count += 1;
+            step = false;
         }
         if (keyStates[SDL_SCANCODE_SPACE])
         {
@@ -87,6 +89,11 @@ int main(int argc, char *argv[])
             SDL_Delay(1000);
             running = running ? false : true;
         }
+        if (keyStates[SDL_SCANCODE_RETURN])
+        {
+            SDL_Log("Stepping through");
+            step = true;
+        }
         // more for quit than anything else?
         while (SDL_PollEvent(&event))
         {
@@ -94,7 +101,7 @@ int main(int argc, char *argv[])
         }
         SDL_Delay(100);
     }
-    SDL_Delay(4000);
+    SDL_Delay(2000);
 
     SDL_Quit();
 
