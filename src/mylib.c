@@ -321,7 +321,7 @@ void processOp(State *state, uint8_t memory[])
     opCodeC = opCodeRight >> 4;
     opCodeD = opCodeRight & 0x0f;
     bool error = false;
-    SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
+    //SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
     switch (opCodeA)
     {
     case (0x0):

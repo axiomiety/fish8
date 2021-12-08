@@ -9,9 +9,9 @@ int main(int argc, char *argv[])
 {
     int scale = 1;
     char *romFilename;
-
+    int clockSpeed = 500;
     int c;
-    while ((c = getopt(argc, argv, "s:r:")) != -1)
+    while ((c = getopt(argc, argv, "s:r:c:")) != -1)
     {
         switch (c)
         {
@@ -21,8 +21,11 @@ int main(int argc, char *argv[])
         case 'r':
             romFilename = optarg;
             break;
+        case 'c':
+            clockSpeed = atoi(optarg);
+            break;
         case '?':
-            fprintf(stderr, "Scale (-s) requires an integer > 0 and ROM (-r) a path to the ROM");
+            fprintf(stderr, "Scale (-s) requires an integer > 0, clock speend (-c) too, and ROM (-r) a path to the ROM");
             return 1;
         default:
             abort();
@@ -60,27 +63,59 @@ int main(int argc, char *argv[])
     updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
     loadROM(romFilename, memory);
-    //uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
-    //memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
+    // uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
+    // memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
-    uint8_t count = 0;
     const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
     bool running = true;
     bool step = false;
+    // 60Hz, in milliseconds
+    float timerDelta = 1 / 60.0 * 1000;
+    float accumulator = 0.0;
+    uint32_t currTick = SDL_GetTicks();
+    uint32_t newTick, elapsedTicks, numCycles;
+    uint32_t totalCycles = 0;
+    float timePerCycle;
     while (!state.quit)
     {
         if (running || step)
         {
-            processOp(&state, memory);
-            if (state.draw)
+            newTick = SDL_GetTicks();
+            elapsedTicks = newTick - currTick;
+            numCycles = elapsedTicks/1000 * clockSpeed;
+            totalCycles += numCycles;
+            if (numCycles > 0)
             {
-                updateScreen(renderer, texture, memory, pixels);
-                state.draw = false;
+                currTick = newTick;
+                timePerCycle = elapsedTicks / numCycles;
+                while (numCycles > 1)
+                {
+                    processOp(&state, memory);
+                    if (state.draw)
+                    {
+                        updateScreen(renderer, texture, memory, pixels);
+                        state.draw = false;
+                    }
+                    processInput(&state, keyStates);
+                    accumulator += timePerCycle;
+                    while (accumulator > timerDelta)
+                    {
+                        if (state.delay_timer > 0)
+                            state.delay_timer--;
+                        if (state.sound_timer > 0)
+                            state.sound_timer--;
+                        accumulator -= timerDelta;
+                    }
+                    numCycles--;
+                }
+                step = false;
             }
-            processInput(&state, keyStates);
-
-            count += 1;
-            step = false;
+            if (totalCycles > clockSpeed)
+            {
+                float numSeconds = totalCycles / clockSpeed;
+                SDL_Log("Processed %f seconds' worth", numSeconds);
+                totalCycles = totalCycles % clockSpeed;
+            }
         }
         if (keyStates[SDL_SCANCODE_SPACE])
         {
@@ -99,7 +134,6 @@ int main(int argc, char *argv[])
         {
             processEvent(&state, &event);
         }
-        SDL_Delay(100);
     }
     SDL_Delay(2000);
 
