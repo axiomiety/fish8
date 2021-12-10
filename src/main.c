@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
     SDL_RenderSetScale(renderer, SCALE, scale);
 
-    SDL_Event event;
+    // SDL_Event event;
 
     // VM init
     uint8_t memory[MEM_SIZE];
@@ -63,7 +63,26 @@ int main(int argc, char *argv[])
     updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
     loadROM(romFilename, memory);
-    // uint8_t test_rom[] = {0xff, 0x29, 0xd0, 0x05, 0xf1, 0x0a, 0x0, 0xe0};
+    // uint8_t test_rom[] = {
+    //     0xa2, 0x04, // set i to x204
+    //     0x12, 0x0c, // jump to the start of the program
+    //     0x42, 0x24, // alien sprite start
+    //     0x7e, 0xdb,
+    //     0xff, 0x7e,
+    //     0x24, 0x3c, // alien sprite end
+    //     0x61, 0x0,  // r1=0
+    //     0x62, 0x0,  // r2=0
+    //     0x0, 0xe0,  // DISP: clear display
+    //     0xd1, 0x28, // display sprite
+    //     0x71, 0x01, // r1 += 1
+    //     0x72, 0x01, // r2 += 1
+    //     0x65, 0x3c, // r5 = 60
+    //     0xf5, 0x15, // set the timer to r5
+    //     0xf5, 0x07, // CHECK_TIMER: r5 = delay timer value
+    //     0x35, 0x00, // if r5 (the timer value) is 0, skip the next instructions
+    //     0x12, 0x1c, // jump back to CHECK_TIMER
+    //     0x12, 0x10, // jump back to DISP
+    // };
     // memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
     const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
@@ -82,24 +101,31 @@ int main(int argc, char *argv[])
         {
             newTick = SDL_GetTicks();
             elapsedTicks = newTick - currTick;
-            numCycles = elapsedTicks/1000 * clockSpeed;
+            numCycles = elapsedTicks / 1000 * clockSpeed;
             totalCycles += numCycles;
             if (numCycles > 0)
             {
                 currTick = newTick;
                 timePerCycle = elapsedTicks / numCycles;
+                SDL_PumpEvents(); // this is needed to populate the keyboard state array
                 while (numCycles > 1)
                 {
                     processOp(&state, memory);
-                    if (state.draw)
-                    {
-                        updateScreen(renderer, texture, memory, pixels);
-                        state.draw = false;
-                    }
                     processInput(&state, keyStates);
                     accumulator += timePerCycle;
+                    if (keyStates[SDL_SCANCODE_BACKSPACE])
+                    {
+                        SDL_Log("Backspace pressed, will exit");
+                        state.quit = true;
+                        break;
+                    }
                     while (accumulator > timerDelta)
                     {
+                        if (state.draw)
+                        {
+                            updateScreen(renderer, texture, memory, pixels);
+                            state.draw = false;
+                        }
                         if (state.delay_timer > 0)
                             state.delay_timer--;
                         if (state.sound_timer > 0)
@@ -112,8 +138,8 @@ int main(int argc, char *argv[])
             }
             if (totalCycles > clockSpeed)
             {
-                float numSeconds = totalCycles / clockSpeed;
-                SDL_Log("Processed %f seconds' worth", numSeconds);
+                // float numSeconds = totalCycles / clockSpeed;
+                // SDL_Log("Processed %f seconds' worth", numSeconds);
                 totalCycles = totalCycles % clockSpeed;
             }
         }
@@ -129,10 +155,10 @@ int main(int argc, char *argv[])
             SDL_Log("Stepping through");
             step = true;
         }
-        // more for quit than anything else?
-        while (SDL_PollEvent(&event))
+        if (keyStates[SDL_SCANCODE_BACKSPACE])
         {
-            processEvent(&state, &event);
+            SDL_Log("Backspace pressed, will exit");
+            state.quit = true;
         }
     }
     SDL_Delay(2000);

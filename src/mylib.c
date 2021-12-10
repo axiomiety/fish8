@@ -155,13 +155,13 @@ void subtractRightFromLeft(State *state, uint8_t reg1, uint8_t reg2)
     state->registers[0xf] = needBorrow ? 0 : 1;
     state->pc += 2;
 }
-void jumpIfKeyPressed(State *state, uint8_t key)
+void jumpIfKeyPressed(State *state, uint8_t reg)
 {
-    state->pc += state->input[key] ? 4 : 2;
+    state->pc += state->input[state->input[reg]] ? 4 : 2;
 }
-void jumpIfKeyNotPressed(State *state, uint8_t key)
+void jumpIfKeyNotPressed(State *state, uint8_t reg)
 {
-    state->pc += state->input[key] ? 2 : 4;
+    state->pc += state->input[state->input[reg]] ? 2 : 4;
 }
 void waitForKey(State *state, uint8_t reg)
 {
@@ -224,20 +224,20 @@ void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uin
     uint8_t flipped = 0;
     uint8_t xCoord = state->registers[regCol];
     uint8_t yCoord = state->registers[regRow];
-    //SDL_Log("Writing sprite to %d,%d", xCoord, yCoord);
+    // SDL_Log("Writing sprite to %d,%d", xCoord, yCoord);
     for (int row = 0; row < height; row++)
     {
         // we wrap around
-        uint16_t rowStart = MEM_DISPLAY_START + (SCREEN_WIDTH/8)*( (yCoord+row)%SCREEN_HEIGHT);
-        //SDL_Log("rowStart %x", rowStart);
-        // convert the whole line as a bit-array
+        uint16_t rowStart = MEM_DISPLAY_START + (SCREEN_WIDTH / 8) * ((yCoord + row) % SCREEN_HEIGHT);
+        // SDL_Log("rowStart %x", rowStart);
+        //  convert the whole line as a bit-array
         bool bitArray[SCREEN_WIDTH];
         uint8_t pixelIndex = 0;
         for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
         {
-            uint8_t values = memory[rowStart+colGroup];
-            //SDL_Log("val at (%d,%d) is %x", row, colGroup, values);
-            // we now bit-shift to get the state of each pixel
+            uint8_t values = memory[rowStart + colGroup];
+            // SDL_Log("val at (%d,%d) is %x", row, colGroup, values);
+            //  we now bit-shift to get the state of each pixel
             for (int shift = 7; shift >= 0; shift--)
             {
                 bitArray[pixelIndex++] = ((values >> shift) & 0x1) ? true : false;
@@ -245,38 +245,40 @@ void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uin
         }
         // flip the pixels
         // in memory, the bit patterns are stored consecutively
-        uint8_t bitPattern = memory[state->i+row];
-        //SDL_Log("bitPattern %x", bitPattern);
-        for (int shift = 7; shift >= 0; shift--) {
-            if ((xCoord + shift) > SCREEN_WIDTH) {
-                // we're off screen, do nothing
-            } else {
-                if (bitArray[xCoord + shift] ^ ((bitPattern >> shift))) {
-                    flipped = 1;
-                }
-                //SDL_Log("(%x) = %x", xCoord+7-shift, (bitPattern>>shift) & 0x1);
-                bitArray[xCoord + 7-shift] = (bitPattern >> shift) & 0x1;
+        uint8_t bitPattern = memory[state->i + row];
+        // SDL_Log("bitPattern %x", bitPattern);
+        uint8_t wrappedXCoord;
+        for (int shift = 7; shift >= 0; shift--)
+        {
+            wrappedXCoord = (xCoord + 7 - shift) % SCREEN_WIDTH;
+            if (bitArray[wrappedXCoord] ^ ((bitPattern >> shift) & 0x1))
+            {
+                flipped = 0;
             }
+            // SDL_Log("(%x) = %x", xCoord+7-shift, (bitPattern>>shift) & 0x1);
+            bitArray[wrappedXCoord] = (bitPattern >> shift) & 0x1;
         }
         // rewrite as uint8_t ints
         pixelIndex = 0;
-        for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++) {
+        for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
+        {
             uint8_t value = 0;
-            for (int shift=0; shift <8; shift++ ) {
-                //SDL_Log("value at %d is %d", pixelIndex, bitArray[pixelIndex]);
+            for (int shift = 0; shift < 8; shift++)
+            {
+                // SDL_Log("value at %d is %d", pixelIndex, bitArray[pixelIndex]);
                 uint8_t val = bitArray[pixelIndex++] ? 1 : 0;
                 value <<= 1;
                 value |= val;
             }
-            //SDL_Log("Setting %x to %x", rowStart+colGroup, value);
-            memory[rowStart+colGroup] = value;
+            // SDL_Log("Setting %x to %x", rowStart+colGroup, value);
+            memory[rowStart + colGroup] = value;
         }
-        //SDL_Log("last idx %d", pixelIndex);
-
+        // SDL_Log("last idx %d", pixelIndex);
     }
-    state->draw = flipped ? true : false;
-    state->registers[0xf] = state->draw ? 1 : 0;
+    state->draw = true; // state->draw || (flipped ? true : false);
+    state->registers[0xf] = flipped ? 1 : 0;
     state->pc += 2;
+    // SDL_Log("finished");
 }
 void setIToBCD(State *state, uint8_t reg, uint8_t memory[])
 {
@@ -321,7 +323,7 @@ void processOp(State *state, uint8_t memory[])
     opCodeC = opCodeRight >> 4;
     opCodeD = opCodeRight & 0x0f;
     bool error = false;
-    //SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
+    // SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
     switch (opCodeA)
     {
     case (0x0):
@@ -533,6 +535,13 @@ void processInput(State *state, const uint8_t keyStates[])
     state->input[0x0] = keyStates[SDL_SCANCODE_X];
     state->input[0xb] = keyStates[SDL_SCANCODE_C];
     state->input[0xf] = keyStates[SDL_SCANCODE_V];
+    for (int i = 0; i < 16; i++)
+    {
+        if (state->input[i])
+        {
+            SDL_Log("%x pressed", i);
+        }
+    }
 }
 
 void processEvent(State *state, SDL_Event *event)
