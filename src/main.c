@@ -54,13 +54,13 @@ int main(int argc, char *argv[])
     copySpritesToMemory(memory);
     State state = {.draw = false, .pc = ROM_OFFSET};
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    for (int i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++)
-    {
-        pixels[i] = PIXEL_OFF;
-    }
-    // we don't really need this - ROMs should execute the 0x00e0 instruction
-    // that essentially does the same thing
-    updateScreen(renderer, texture, memory, pixels);
+    // for (int i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++)
+    // {
+    //     pixels[i] = PIXEL_OFF;
+    // }
+    // // we don't really need this - ROMs should execute the 0x00e0 instruction
+    // // that essentially does the same thing
+    // updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
     loadROM(romFilename, memory);
     // uint8_t test_rom[] = {
@@ -79,15 +79,13 @@ int main(int argc, char *argv[])
     //     0x65, 0x3c, // r5 = 60
     //     0xf5, 0x15, // set the timer to r5
     //     0xf5, 0x07, // CHECK_TIMER: r5 = delay timer value
+    //     0x12, 0x10, // jump back to DISP
     //     0x35, 0x00, // if r5 (the timer value) is 0, skip the next instructions
     //     0x12, 0x1c, // jump back to CHECK_TIMER
-    //     0x12, 0x10, // jump back to DISP
     // };
     // memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
     const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
-    bool running = true;
-    bool step = false;
     // 60Hz, in milliseconds
     float timerDelta = 1 / 60.0 * 1000;
     float accumulator = 0.0;
@@ -97,68 +95,43 @@ int main(int argc, char *argv[])
     float timePerCycle;
     while (!state.quit)
     {
-        if (running || step)
+        newTick = SDL_GetTicks();
+        elapsedTicks = newTick - currTick;
+        numCycles = elapsedTicks / 1000 * clockSpeed;
+        totalCycles += numCycles;
+        if (numCycles > 0)
         {
-            newTick = SDL_GetTicks();
-            elapsedTicks = newTick - currTick;
-            numCycles = elapsedTicks / 1000 * clockSpeed;
-            totalCycles += numCycles;
-            if (numCycles > 0)
+            currTick = newTick;
+            timePerCycle = elapsedTicks / numCycles;
+            while (numCycles > 1)
             {
-                currTick = newTick;
-                timePerCycle = elapsedTicks / numCycles;
+
                 SDL_PumpEvents(); // this is needed to populate the keyboard state array
-                while (numCycles > 1)
+                processInput(&state, keyStates);
+                processOp(&state, memory);
+                accumulator += timePerCycle;
+                if (keyStates[SDL_SCANCODE_SPACE])
                 {
-                    processOp(&state, memory);
-                    processInput(&state, keyStates);
-                    accumulator += timePerCycle;
-                    if (keyStates[SDL_SCANCODE_BACKSPACE])
-                    {
-                        SDL_Log("Backspace pressed, will exit");
-                        state.quit = true;
-                        break;
-                    }
-                    while (accumulator > timerDelta)
-                    {
-                        if (state.draw)
-                        {
-                            updateScreen(renderer, texture, memory, pixels);
-                            state.draw = false;
-                        }
-                        if (state.delay_timer > 0)
-                            state.delay_timer--;
-                        if (state.sound_timer > 0)
-                            state.sound_timer--;
-                        accumulator -= timerDelta;
-                    }
-                    numCycles--;
+                    SDL_Log("Backspace pressed, will exit");
+                    state.quit = true;
+                    break;
                 }
-                step = false;
+                    if (state.draw)
+                    {
+                        updateScreen2(renderer, texture, state.pixels, pixels);
+                        state.draw = false;
+                    }
+                while (accumulator > timerDelta)
+                {
+                    if (state.delay_timer > 0)
+                        state.delay_timer--;
+                    if (state.sound_timer > 0)
+                        state.sound_timer--;
+                    accumulator -= timerDelta;
+                }
+                numCycles--;
+                SDL_Delay(timePerCycle);
             }
-            if (totalCycles > clockSpeed)
-            {
-                // float numSeconds = totalCycles / clockSpeed;
-                // SDL_Log("Processed %f seconds' worth", numSeconds);
-                totalCycles = totalCycles % clockSpeed;
-            }
-        }
-        if (keyStates[SDL_SCANCODE_SPACE])
-        {
-            SDL_Log("Pause toggled");
-            // so we don't untoggle too fast
-            SDL_Delay(1000);
-            running = running ? false : true;
-        }
-        if (keyStates[SDL_SCANCODE_RETURN])
-        {
-            SDL_Log("Stepping through");
-            step = true;
-        }
-        if (keyStates[SDL_SCANCODE_BACKSPACE])
-        {
-            SDL_Log("Backspace pressed, will exit");
-            state.quit = true;
         }
     }
     SDL_Delay(2000);

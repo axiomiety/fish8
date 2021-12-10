@@ -50,6 +50,10 @@ void clearDisplay(State *state, uint8_t memory[])
 {
     memset(memory + MEM_DISPLAY_START, 0, 256 * sizeof(uint8_t));
     state->draw = true;
+    for (int i=0;i<SCREEN_WIDTH*SCREEN_HEIGHT;i++)
+    {
+        state->pixels[i] = false;
+    }
     state->pc += 2;
 }
 void jumpToAddress(State *state, uint8_t opCodeB, uint8_t opCodeRight)
@@ -157,11 +161,11 @@ void subtractRightFromLeft(State *state, uint8_t reg1, uint8_t reg2)
 }
 void jumpIfKeyPressed(State *state, uint8_t reg)
 {
-    state->pc += state->input[state->input[reg]] ? 4 : 2;
+    state->pc += state->input[state->registers[reg]] ? 4 : 2;
 }
 void jumpIfKeyNotPressed(State *state, uint8_t reg)
 {
-    state->pc += state->input[state->input[reg]] ? 2 : 4;
+    state->pc += state->input[state->registers[reg]] ? 2 : 4;
 }
 void waitForKey(State *state, uint8_t reg)
 {
@@ -219,6 +223,50 @@ void setIToSprite(State *state, uint8_t reg)
     state->i = reg * 5;
     state->pc += 2;
 }
+// void setPixels2(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uint8_t memory[]) {
+//     uint8_t *vmem = memory + MEM_DISPLAY_START;
+//     bool flipped = false;
+//     bool bitArray[SCREEN_WIDTH*SCREEN_HEIGHT];
+//     uint8_t pixelIndex, rowOffset;
+//     for (int row=0;row<SCREEN_HEIGHT;row++) {
+//         rowOffset = row*SCREEN_WIDTH/8;
+//         for (int col=0;col<SCREEN_WIDTH/8;col++) {
+//             for (int shift=0; shift<8;shift++) {
+//                 pixelIndex = col + 7-shift + rowOffset;
+//                 bitArray[pixelIndex] = (vmem[rowOffset+col] >> shift) & 1;
+//             }
+//         }
+//     }
+//     for (int h=0; h<height;h++) {
+//         uint8_t spriteLine = memory[state->i + h];
+//         uint8_t xCoord = state->registers[regCol] % SCREEN_WIDTH;
+//         uint8_t yCoord = (state->registers[regRow] + height) % SCREEN_HEIGHT;
+//         for (int shift=0;shift<8;shift++) {
+//             xCoord = (xCoord + 7-shift) % SCREEN_WIDTH;
+//             bitArray[xCoord + yCoord*SCREEN_WIDTH] ^= (spriteLine >> shift) & 1;
+            
+//         }
+//     }
+
+// }
+void setPixels2(State *state, uint8_t xReg, uint8_t yReg, uint8_t height, uint8_t memory[])
+{
+    //SDL_Log("Drawing at (%d,%d)", state->registers[xReg], state->registers[yReg]);
+    state->registers[0xf] = 0;
+    for (int h=0; h<height;h++) {
+        uint8_t y = (state->registers[yReg] + h) % SCREEN_HEIGHT;
+        uint8_t sprite = memory[state->i+h];
+        for (int shift=7;shift>=0;shift--) {
+            uint8_t x = (state->registers[xReg] + 7-shift) % SCREEN_WIDTH;
+            //SDL_Log("%d,%d",x,y);
+            uint8_t bit = (sprite >> shift) & 0x1;
+            state->registers[0xf] |= state->pixels[x+y*SCREEN_WIDTH] & bit;
+            state->pixels[x+y*SCREEN_WIDTH] ^= bit; 
+        }
+    }
+    state->draw = true;
+    state->pc += 2;
+}
 void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uint8_t memory[])
 {
     uint8_t flipped = 0;
@@ -251,12 +299,13 @@ void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uin
         for (int shift = 7; shift >= 0; shift--)
         {
             wrappedXCoord = (xCoord + 7 - shift) % SCREEN_WIDTH;
-            if (bitArray[wrappedXCoord] ^ ((bitPattern >> shift) & 0x1))
+            if (bitArray[wrappedXCoord] & ((bitPattern >> shift) & 0x1))
             {
-                flipped = 0;
+                flipped = 1;
+                //SDL_Log("bitArray is %x, val is %x", bitArray[wrappedXCoord], (bitPattern>>shift) &01);
             }
             // SDL_Log("(%x) = %x", xCoord+7-shift, (bitPattern>>shift) & 0x1);
-            bitArray[wrappedXCoord] = (bitPattern >> shift) & 0x1;
+            bitArray[wrappedXCoord] ^= (bitPattern >> shift) & 0x1;
         }
         // rewrite as uint8_t ints
         pixelIndex = 0;
@@ -275,8 +324,8 @@ void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uin
         }
         // SDL_Log("last idx %d", pixelIndex);
     }
-    state->draw = true; // state->draw || (flipped ? true : false);
-    state->registers[0xf] = flipped ? 1 : 0;
+    state->draw = (bool) flipped;
+    state->registers[0xf] = flipped;
     state->pc += 2;
     // SDL_Log("finished");
 }
@@ -323,7 +372,7 @@ void processOp(State *state, uint8_t memory[])
     opCodeC = opCodeRight >> 4;
     opCodeD = opCodeRight & 0x0f;
     bool error = false;
-    // SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
+    //SDL_Log("Decoding %02x%02x (A:%x, B:%x, C:%x, D:%x)", opCodeLeft, opCodeRight, opCodeA, opCodeB, opCodeC, opCodeD);
     switch (opCodeA)
     {
     case (0x0):
@@ -423,7 +472,7 @@ void processOp(State *state, uint8_t memory[])
         getRandomNumber(state, opCodeB, opCodeRight);
         break;
     case (0xd):
-        setPixels(state, opCodeB, opCodeC, opCodeD, memory);
+        setPixels2(state, opCodeB, opCodeC, opCodeD, memory);
         break;
     case (0xe):
     {
@@ -488,6 +537,17 @@ void processOp(State *state, uint8_t memory[])
         SDL_Log("Unknown/unimplemented opcode %02x%02x", opCodeLeft, opCodeRight);
         exit(1);
     }
+}
+
+void updateScreen2(SDL_Renderer *renderer, SDL_Texture *texture, bool myPixels[], uint32_t pixels[])
+{
+    for (int pixelIndex = 0; pixelIndex < SCREEN_HEIGHT*SCREEN_WIDTH; pixelIndex++) {
+        pixels[pixelIndex] = myPixels[pixelIndex] ? PIXEL_ON : PIXEL_OFF;
+    }
+    SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(uint32_t));
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
 }
 
 void updateScreen(SDL_Renderer *renderer, SDL_Texture *texture, uint8_t memory[], uint32_t pixels[])

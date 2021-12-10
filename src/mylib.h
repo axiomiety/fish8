@@ -24,6 +24,7 @@ typedef struct {
     bool input[16];
     bool quit;
     bool draw;
+    bool pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 } State;
 
 void
@@ -40,6 +41,9 @@ copySpritesToMemory(uint8_t memory[]);
 
 void
 updateScreen(SDL_Renderer *renderer, SDL_Texture *texture, uint8_t memory[], uint32_t pixels[]);
+
+void
+updateScreen2(SDL_Renderer *renderer, SDL_Texture *texture, bool myPixels[], uint32_t pixels[]);
 
 void
 processInput(State * state, const uint8_t keyStates[]);

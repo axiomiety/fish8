@@ -562,9 +562,9 @@ static void test_draw_sprite(void **state)
     chip8State.draw = false;
     // draw the same sprite again
     processOp(&chip8State, memory);
-    // flag should be unchanged
+    // flag should be changed
     assert_int_equal(chip8State.registers[0xf], 0);
-    assert_false(chip8State.draw);
+    assert_true(chip8State.draw);
 }
 
 static void test_bcd(void **state)
