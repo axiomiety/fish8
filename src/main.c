@@ -40,8 +40,6 @@ int main(int argc, char *argv[])
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
     SDL_RenderSetScale(renderer, SCALE, scale);
 
-    // SDL_Event event;
-
     // VM init
     uint8_t memory[MEM_SIZE];
     // important so we don't have any random pixels turned on when they shouldn't
@@ -53,37 +51,10 @@ int main(int argc, char *argv[])
     // load up the sprites
     copySpritesToMemory(memory);
     State state = {.draw = false, .pc = ROM_OFFSET};
+    // this is where our *actual* pixels will be stored
     uint32_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
-    // for (int i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++)
-    // {
-    //     pixels[i] = PIXEL_OFF;
-    // }
-    // // we don't really need this - ROMs should execute the 0x00e0 instruction
-    // // that essentially does the same thing
-    // updateScreen(renderer, texture, memory, pixels);
     SDL_Log("ROM filename: %s", romFilename);
     loadROM(romFilename, memory);
-    // uint8_t test_rom[] = {
-    //     0xa2, 0x04, // set i to x204
-    //     0x12, 0x0c, // jump to the start of the program
-    //     0x42, 0x24, // alien sprite start
-    //     0x7e, 0xdb,
-    //     0xff, 0x7e,
-    //     0x24, 0x3c, // alien sprite end
-    //     0x61, 0x0,  // r1=0
-    //     0x62, 0x0,  // r2=0
-    //     0x0, 0xe0,  // DISP: clear display
-    //     0xd1, 0x28, // display sprite
-    //     0x71, 0x01, // r1 += 1
-    //     0x72, 0x01, // r2 += 1
-    //     0x65, 0x3c, // r5 = 60
-    //     0xf5, 0x15, // set the timer to r5
-    //     0xf5, 0x07, // CHECK_TIMER: r5 = delay timer value
-    //     0x12, 0x10, // jump back to DISP
-    //     0x35, 0x00, // if r5 (the timer value) is 0, skip the next instructions
-    //     0x12, 0x1c, // jump back to CHECK_TIMER
-    // };
-    // memcpy(memory + ROM_OFFSET, test_rom, sizeof(test_rom));
 
     const uint8_t *keyStates = SDL_GetKeyboardState(NULL);
     // 60Hz, in milliseconds
@@ -116,16 +87,17 @@ int main(int argc, char *argv[])
                     state.quit = true;
                     break;
                 }
-                    if (state.draw)
-                    {
-                        updateScreen2(renderer, texture, state.pixels, pixels);
-                        state.draw = false;
-                    }
+                if (state.draw)
+                {
+                    updateScreen2(renderer, texture, state.pixels, pixels);
+                    state.draw = false;
+                }
                 while (accumulator > timerDelta)
                 {
                     if (state.delay_timer > 0)
                         state.delay_timer--;
                     if (state.sound_timer > 0)
+                        //TODO: play audio!
                         state.sound_timer--;
                     accumulator -= timerDelta;
                 }
@@ -134,6 +106,7 @@ int main(int argc, char *argv[])
             }
         }
     }
+    // bit of a delay so we get the see the screen before it closes
     SDL_Delay(2000);
 
     SDL_Quit();

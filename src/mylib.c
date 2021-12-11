@@ -223,42 +223,14 @@ void setIToSprite(State *state, uint8_t reg)
     state->i = reg * 5;
     state->pc += 2;
 }
-// void setPixels2(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uint8_t memory[]) {
-//     uint8_t *vmem = memory + MEM_DISPLAY_START;
-//     bool flipped = false;
-//     bool bitArray[SCREEN_WIDTH*SCREEN_HEIGHT];
-//     uint8_t pixelIndex, rowOffset;
-//     for (int row=0;row<SCREEN_HEIGHT;row++) {
-//         rowOffset = row*SCREEN_WIDTH/8;
-//         for (int col=0;col<SCREEN_WIDTH/8;col++) {
-//             for (int shift=0; shift<8;shift++) {
-//                 pixelIndex = col + 7-shift + rowOffset;
-//                 bitArray[pixelIndex] = (vmem[rowOffset+col] >> shift) & 1;
-//             }
-//         }
-//     }
-//     for (int h=0; h<height;h++) {
-//         uint8_t spriteLine = memory[state->i + h];
-//         uint8_t xCoord = state->registers[regCol] % SCREEN_WIDTH;
-//         uint8_t yCoord = (state->registers[regRow] + height) % SCREEN_HEIGHT;
-//         for (int shift=0;shift<8;shift++) {
-//             xCoord = (xCoord + 7-shift) % SCREEN_WIDTH;
-//             bitArray[xCoord + yCoord*SCREEN_WIDTH] ^= (spriteLine >> shift) & 1;
-            
-//         }
-//     }
-
-// }
 void setPixels2(State *state, uint8_t xReg, uint8_t yReg, uint8_t height, uint8_t memory[])
 {
-    //SDL_Log("Drawing at (%d,%d)", state->registers[xReg], state->registers[yReg]);
     state->registers[0xf] = 0;
     for (int h=0; h<height;h++) {
         uint8_t y = (state->registers[yReg] + h) % SCREEN_HEIGHT;
         uint8_t sprite = memory[state->i+h];
         for (int shift=7;shift>=0;shift--) {
             uint8_t x = (state->registers[xReg] + 7-shift) % SCREEN_WIDTH;
-            //SDL_Log("%d,%d",x,y);
             uint8_t bit = (sprite >> shift) & 0x1;
             state->registers[0xf] |= state->pixels[x+y*SCREEN_WIDTH] & bit;
             state->pixels[x+y*SCREEN_WIDTH] ^= bit; 
@@ -266,68 +238,6 @@ void setPixels2(State *state, uint8_t xReg, uint8_t yReg, uint8_t height, uint8_
     }
     state->draw = true;
     state->pc += 2;
-}
-void setPixels(State *state, uint8_t regCol, uint8_t regRow, uint8_t height, uint8_t memory[])
-{
-    uint8_t flipped = 0;
-    uint8_t xCoord = state->registers[regCol];
-    uint8_t yCoord = state->registers[regRow];
-    // SDL_Log("Writing sprite to %d,%d", xCoord, yCoord);
-    for (int row = 0; row < height; row++)
-    {
-        // we wrap around
-        uint16_t rowStart = MEM_DISPLAY_START + (SCREEN_WIDTH / 8) * ((yCoord + row) % SCREEN_HEIGHT);
-        // SDL_Log("rowStart %x", rowStart);
-        //  convert the whole line as a bit-array
-        bool bitArray[SCREEN_WIDTH];
-        uint8_t pixelIndex = 0;
-        for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
-        {
-            uint8_t values = memory[rowStart + colGroup];
-            // SDL_Log("val at (%d,%d) is %x", row, colGroup, values);
-            //  we now bit-shift to get the state of each pixel
-            for (int shift = 7; shift >= 0; shift--)
-            {
-                bitArray[pixelIndex++] = ((values >> shift) & 0x1) ? true : false;
-            }
-        }
-        // flip the pixels
-        // in memory, the bit patterns are stored consecutively
-        uint8_t bitPattern = memory[state->i + row];
-        // SDL_Log("bitPattern %x", bitPattern);
-        uint8_t wrappedXCoord;
-        for (int shift = 7; shift >= 0; shift--)
-        {
-            wrappedXCoord = (xCoord + 7 - shift) % SCREEN_WIDTH;
-            if (bitArray[wrappedXCoord] & ((bitPattern >> shift) & 0x1))
-            {
-                flipped = 1;
-                //SDL_Log("bitArray is %x, val is %x", bitArray[wrappedXCoord], (bitPattern>>shift) &01);
-            }
-            // SDL_Log("(%x) = %x", xCoord+7-shift, (bitPattern>>shift) & 0x1);
-            bitArray[wrappedXCoord] ^= (bitPattern >> shift) & 0x1;
-        }
-        // rewrite as uint8_t ints
-        pixelIndex = 0;
-        for (int colGroup = 0; colGroup < SCREEN_WIDTH / 8; colGroup++)
-        {
-            uint8_t value = 0;
-            for (int shift = 0; shift < 8; shift++)
-            {
-                // SDL_Log("value at %d is %d", pixelIndex, bitArray[pixelIndex]);
-                uint8_t val = bitArray[pixelIndex++] ? 1 : 0;
-                value <<= 1;
-                value |= val;
-            }
-            // SDL_Log("Setting %x to %x", rowStart+colGroup, value);
-            memory[rowStart + colGroup] = value;
-        }
-        // SDL_Log("last idx %d", pixelIndex);
-    }
-    state->draw = (bool) flipped;
-    state->registers[0xf] = flipped;
-    state->pc += 2;
-    // SDL_Log("finished");
 }
 void setIToBCD(State *state, uint8_t reg, uint8_t memory[])
 {
